@@ -8,6 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BEGIN = "-- >>> omarchy-clean >>>"
 END = "-- <<< omarchy-clean <<<"
+OLD_LINE = 'o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean 60")'
+NEW_LINE = 'o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean")'
 ORIGINAL = 'local o = require("omarchy")\no.bind("SUPER + T", "Terminal", "xdg-terminal")\n'
 
 
@@ -56,7 +58,27 @@ class SetupScriptTest(unittest.TestCase):
         self.assertTrue(text.startswith(ORIGINAL))
         self.assertEqual(text.count(BEGIN), 1)
         self.assertEqual(text.count(END), 1)
-        self.assertIn('o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean 60")', text)
+        self.assertIn(NEW_LINE, text)
+        self.assertNotIn("omarchy-clean 60", text)
+
+    def test_old_block_migrated_in_place(self):
+        before = 'local o = require("omarchy")\n-- user stuff\n'
+        after = 'o.bind("SUPER + X", "X", "x")\n-- tail, no newline'
+        self.bindings.write_text(f"{before}{BEGIN}\n{OLD_LINE}\n{END}\n{after}")
+        result = self.run_setup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Updated omarchy-clean keybind", result.stdout)
+        self.assertEqual(self.bindings.read_text(),
+                         f"{before}{BEGIN}\n{NEW_LINE}\n{END}\n{after}")
+        self.assertIn("hyprctl reload", self.calls())
+
+    def test_current_block_is_noop(self):
+        self.run_setup()
+        first = self.bindings.read_bytes()
+        result = self.run_setup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.bindings.read_bytes(), first)
+        self.assertNotIn("Updated omarchy-clean keybind", result.stdout)
 
     def test_setup_enables_agent_and_reloads(self):
         self.run_setup()

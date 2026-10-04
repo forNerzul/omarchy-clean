@@ -64,7 +64,7 @@ class MakeInstallTest(unittest.TestCase):
     def test_desktop_file_content(self):
         self.make("install")
         text = self.path("/usr/share/applications/omarchy-clean.desktop").read_text()
-        self.assertIn("Exec=omarchy-clean 60", text)
+        self.assertIn("Exec=omarchy-clean", text.splitlines())
 
     def test_install_never_touches_home(self):
         self.make("install")

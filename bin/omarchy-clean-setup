@@ -6,6 +6,7 @@ HYPR_CONFIG_DIR="${HYPR_CONFIG_DIR:-$HOME/.config/hypr}"
 APPS_DIR="${APPS_DIR:-$HOME/.local/share/applications}"
 BEGIN_MARK='-- >>> omarchy-clean >>>'
 END_MARK='-- <<< omarchy-clean <<<'
+KEYBIND_LINE='o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean")'
 
 remove=0
 keybind=1
@@ -47,11 +48,36 @@ enable_polkit_agent() {
     fi
 }
 
+# Rewrite an existing (already validated) block in place when its content is stale.
+update_keybind() {
+    local file="$1" current tmp
+    current="$(awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+        $0 == e { inblock = 0 }
+        inblock { print }
+        $0 == b { inblock = 1 }
+    ' "$file")"
+    [ "$current" != "$KEYBIND_LINE" ] || return 0
+    tmp="$(mktemp)"
+    awk -v b="$BEGIN_MARK" -v e="$END_MARK" -v line="$KEYBIND_LINE" '
+        $0 == b { print; print line; skip = 1; next }
+        skip && $0 == e { skip = 0 }
+        !skip { print }
+    ' "$file" > "$tmp"
+    # awk always terminates the last line; restore a missing final newline.
+    if [ -n "$(tail -c1 "$file")" ]; then
+        truncate -s -1 "$tmp"
+    fi
+    cat "$tmp" > "$file"
+    rm -f "$tmp"
+    echo "Updated omarchy-clean keybind"
+}
+
 add_keybind() {
     local file="$HYPR_CONFIG_DIR/bindings.lua"
     mkdir -p "$HYPR_CONFIG_DIR"
     touch "$file"
     if grep -qF -- "$BEGIN_MARK" "$file"; then
+        update_keybind "$file"
         return
     fi
     # Keep the original bytes intact: only add a newline if the file lacks one.
@@ -60,7 +86,7 @@ add_keybind() {
     fi
     {
         echo "$BEGIN_MARK"
-        echo 'o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean 60")'
+        echo "$KEYBIND_LINE"
         echo "$END_MARK"
     } >> "$file"
 }
