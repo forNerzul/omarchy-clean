@@ -14,7 +14,8 @@ distributable as an Arch (AUR) package.
   launcher; the polkit policy is generated for the real helper path.
 - Package installs system files only (`/usr`); per-user steps (keybind,
   hyprpolkitagent) move to an `omarchy-clean-setup` command.
-- Channel: AUR. License and GitHub publication are pending user decisions.
+- Channel: AUR. License MIT; repo github.com/forNerzul/omarchy-clean;
+  maintainer Sergio Javier Garcia Martinez. Publishing is a separate user decision.
 
 ## Branch
 
@@ -22,18 +23,33 @@ distributable as an Arch (AUR) package.
 
 ## Tasks
 
-- [ ] 1. Capability-based device classifier in `core.py` (TDD, pure logic).
-- [ ] 2. Helper uses the classifier by default; require a keyboard; keep
+- [x] 1. Capability-based device classifier in `core.py` (TDD, pure logic).
+- [x] 2. Helper uses the classifier by default; require a keyboard; keep
       `--device` override. Check classification against this machine's sysfs.
-- [ ] 3. Prefix-independent paths: overlay locates the helper relative to its
+- [x] 3. Prefix-independent paths: overlay locates the helper relative to its
       launcher; polkit policy rendered from a template with the helper path.
-- [ ] 4. `make install` (PREFIX/DESTDIR) for system files incl. desktop entry;
+- [x] 4. `make install` (PREFIX/DESTDIR) for system files incl. desktop entry;
       `omarchy-clean-setup [--remove]` for user steps; `install.sh` and
       `uninstall.sh` become thin wrappers.
-- [ ] 5. AUR packaging: `packaging/aur/PKGBUILD` + `.SRCINFO`; local build
+- [x] 5. AUR packaging: `packaging/aur/PKGBUILD` + `.SRCINFO`; local build
       check with `makepkg` from the local repo.
-- [ ] 6. README: supported hardware, AUR/manual install, setup command.
+- [x] 6. README: supported hardware, AUR/manual install, setup command.
 
 ## Evidence
 
-(commit ids and checks recorded per task)
+- Task 1: `91ada17` — RED/GREEN, 72 tests; classifier checked against this
+  machine's sysfs: 8 devices locked (adds 2 Bluetooth HID devices), lid,
+  speaker and 4 jacks excluded, keyboard present.
+- Task 2: `4b0e20c` — RED/GREEN, 78 tests.
+- Task 3: `c0caf0c` — RED/GREEN, 85 tests.
+- Task 4: `0233b1a` — RED/GREEN, `make check` 104 tests; DESTDIR install
+  layout inspected (relative symlink, policy exec.path under /usr).
+- Task 5: `cb14a88` — RED/GREEN, 107 tests; local `makepkg -f` built
+  omarchy-clean-0.1.0-1-any with check() passing; package not installed.
+- Task 6: README rewrite (passive docs, `make check` still green).
+
+## Pending
+
+- Hardware check of auto-detection with a real lock (reinstall needed:
+  `./uninstall.sh && ./install.sh`).
+- Release: push, tag v0.1.0, `updpkgsums`, AUR upload (user decisions).
