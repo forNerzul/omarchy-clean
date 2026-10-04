@@ -7,6 +7,7 @@ import unittest
 from types import SimpleNamespace
 
 from omarchy_clean import helper
+from tests.test_core import FIXTURES
 
 EV_KEY = 1
 ESC, ENTER = 1, 28
@@ -299,6 +300,54 @@ class NonBlockingLineWriterTests(unittest.TestCase):
         writer = helper.NonBlockingLineWriter(self.w)
         with self.assertRaises(ValueError):
             writer.write("x" * 5000)
+
+
+class ChooseTargetsTests(unittest.TestCase):
+    NAMES = [
+        "Lid Switch",
+        "Power Button",
+        "Apple Inc. Apple Internal Keyboard / Trackpad",
+        "bcm5974",
+    ]
+
+    def _devices(self, names=None):
+        names = self.NAMES if names is None else names
+        return [(f"/dev/input/event{i}", n, FIXTURES[n]) for i, n in enumerate(names)]
+
+    def test_auto_selects_inputs_and_skips_switch_only(self):
+        paths, names, error = helper.choose_targets(self._devices(), None)
+        self.assertIsNone(error)
+        self.assertEqual(paths, ["/dev/input/event1", "/dev/input/event2", "/dev/input/event3"])
+        self.assertEqual(names, self.NAMES[1:])
+
+    def test_auto_without_keyboard_errors(self):
+        devices = self._devices(["Lid Switch", "Power Button", "bcm5974"])
+        paths, names, error = helper.choose_targets(devices, [])
+        self.assertEqual((paths, names), ([], []))
+        self.assertIn("no keyboard found", error)
+
+    def test_auto_with_nothing_errors(self):
+        paths, _, error = helper.choose_targets(self._devices(["Lid Switch"]), None)
+        self.assertEqual(paths, [])
+        self.assertIsNotNone(error)
+
+    def test_override_selects_named_devices(self):
+        wanted = ["bcm5974", "Apple Inc. Apple Internal Keyboard / Trackpad"]
+        paths, names, error = helper.choose_targets(self._devices(), wanted)
+        self.assertIsNone(error)
+        self.assertEqual(paths, ["/dev/input/event2", "/dev/input/event3"])
+        self.assertEqual(sorted(names), sorted(wanted))
+
+    def test_override_missing_name_errors(self):
+        wanted = ["Apple Inc. Apple Internal Keyboard / Trackpad", "Nope"]
+        paths, _, error = helper.choose_targets(self._devices(), wanted)
+        self.assertEqual(paths, [])
+        self.assertIn("Nope", error)
+
+    def test_override_without_keyboard_errors(self):
+        paths, _, error = helper.choose_targets(self._devices(), ["bcm5974"])
+        self.assertEqual(paths, [])
+        self.assertIn("no keyboard found", error)
 
 
 class MainTests(unittest.TestCase):

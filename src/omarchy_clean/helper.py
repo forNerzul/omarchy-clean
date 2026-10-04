@@ -12,16 +12,17 @@ import threading
 import time
 
 from omarchy_clean.core import (
-    DEFAULT_DEVICE_NAMES,
     MAX_LOCK_SECONDS,
     HoldCombo,
     LockTimer,
     SuspendDetector,
+    classify_device,
     select_devices,
+    select_lock_targets,
 )
 
 EV_KEY = 1
-REQUIRED_DEFAULT_NAMES = DEFAULT_DEVICE_NAMES[:2]
+NO_KEYBOARD_ERROR = "no keyboard found; refusing to lock without a way to unlock"
 KEYS_CLEAR_TIMEOUT = 2.0
 KEYS_CLEAR_STEP = 0.05
 
@@ -163,11 +164,36 @@ def _finish(out, reason: str) -> str:
 def _parse_args(argv):
     parser = argparse.ArgumentParser(prog="omarchy-clean-helper")
     parser.add_argument("seconds", type=float)
-    parser.add_argument("--device", action="append", metavar="NAME", dest="devices")
+    parser.add_argument(
+        "--device",
+        action="append",
+        metavar="NAME",
+        dest="devices",
+        help="lock only the device with this exact name (repeatable); "
+        "overrides auto-detection",
+    )
     args = parser.parse_args(argv)
     if not 0 < args.seconds <= MAX_LOCK_SECONDS:
         parser.error(f"SECONDS must be > 0 and <= {MAX_LOCK_SECONDS}")
     return args
+
+
+def choose_targets(devices, requested_names):
+    """Pick devices to lock: (paths, names, error). devices: (path, name, caps)."""
+    devices = list(devices)
+    if requested_names:
+        selection = select_devices(((p, n) for p, n, _ in devices), requested_names)
+        if selection.missing:
+            return [], [], "missing devices: " + ", ".join(selection.missing)
+        chosen = set(selection.paths)
+        picked = [(p, n, c) for p, n, c in devices if p in chosen]
+        if not any(classify_device(c) == "keyboard" for _, _, c in picked):
+            return [], [], NO_KEYBOARD_ERROR
+        return [p for p, _, _ in picked], [n for _, n, _ in picked], None
+    targets = select_lock_targets(devices)
+    if not targets.has_keyboard:
+        return [], [], NO_KEYBOARD_ERROR
+    return list(targets.paths), list(targets.names), None
 
 
 def main(argv=None) -> int:
@@ -175,23 +201,37 @@ def main(argv=None) -> int:
     import evdev  # lazy: only needed on the real CLI path
 
     out = NonBlockingLineWriter(sys.stdout.fileno())
-    custom = bool(args.devices)
-    wanted = tuple(args.devices) if custom else DEFAULT_DEVICE_NAMES
-    required = wanted if custom else REQUIRED_DEFAULT_NAMES
 
     opened = {}
     try:
         for path in evdev.list_devices():
-            opened[path] = evdev.InputDevice(path)
-        selection = select_devices(((p, d.name) for p, d in opened.items()), wanted)
-        missing = [n for n in selection.missing if n in required]
-        if missing:
             try:
-                _emit(out, event="error", message="missing devices: " + ", ".join(missing))
+                opened[path] = evdev.InputDevice(path)
+            except OSError:  # permission denied or device vanished
+                continue
+        try:
+            listing = [
+                (p, d.name, d.capabilities(absinfo=False)) for p, d in opened.items()
+            ]
+        except OSError as exc:
+            listing = []
+            error = f"cannot read devices: {exc}"
+            paths = []
+        else:
+            paths, _, error = choose_targets(listing, args.devices)
+        if error:
+            try:
+                _emit(out, event="error", message=error)
                 _emit(out, event="unlocked", reason="error")
             except _OutputClosed:
                 pass
             return 1
+
+        for path in [p for p in opened if p not in paths]:
+            try:
+                opened.pop(path).close()
+            except Exception:
+                pass
 
         stop = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
@@ -201,7 +241,7 @@ def main(argv=None) -> int:
             return select.select(fds, [], [], timeout)[0]
 
         reason = run_lock(
-            [opened[p] for p in selection.paths],
+            [opened[p] for p in paths],
             args.seconds,
             out,
             clock=time.monotonic,

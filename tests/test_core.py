@@ -1,7 +1,6 @@
 import unittest
 
 from omarchy_clean.core import (
-    DEFAULT_DEVICE_NAMES,
     DEFAULT_HOLD_SECONDS,
     DEFAULT_UNLOCK_KEYS,
     KEY_ENTER,
@@ -26,7 +25,6 @@ class SelectDevicesTest(unittest.TestCase):
         self.assertEqual(DEFAULT_UNLOCK_KEYS, frozenset({1, 28}))
         self.assertEqual(DEFAULT_HOLD_SECONDS, 3.0)
         self.assertEqual(MAX_LOCK_SECONDS, 600)
-        self.assertIn("bcm5974", DEFAULT_DEVICE_NAMES)
 
     def test_duplicates_order_and_missing(self) -> None:
         available = [

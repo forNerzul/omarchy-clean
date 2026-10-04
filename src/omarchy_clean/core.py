@@ -24,13 +24,6 @@ BTN_TOUCH = 330
 DEFAULT_UNLOCK_KEYS: frozenset[int] = frozenset({KEY_ESC, KEY_ENTER})
 DEFAULT_HOLD_SECONDS = 3.0
 MAX_LOCK_SECONDS = 600
-DEFAULT_DEVICE_NAMES: tuple[str, ...] = (
-    "Apple Inc. Apple Internal Keyboard / Trackpad",
-    "bcm5974",
-    "Power Button",
-    "Sleep Button",
-    "Video Bus",
-)
 
 
 @dataclass(frozen=True)
