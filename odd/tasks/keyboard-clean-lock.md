@@ -19,8 +19,8 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
 
 ## Tasks
 
-- [ ] 1. Scaffold project (layout, `.gitignore`, test runner, README stub).
-- [ ] 2. Helper core logic (TDD): device selection by name, hold-combo
+- [x] 1. Scaffold project (layout, `.gitignore`, test runner, README stub).
+- [x] 2. Helper core logic (TDD): device selection by name, hold-combo
       detector, lock timer/deadline with hard max; no evdev import.
 - [ ] 3. Helper runtime: evdev grab loop, JSON-lines status protocol on
       stdout, signal handling, CLI (`omarchy-clean-helper <seconds>`).
@@ -31,7 +31,8 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
 
 ## Evidence
 
-(commit ids and checks recorded per task)
+- Task 1: `336cdf5` — `make test` runner works (0 tests, exit 5 expected).
+- Task 2: `6f791bd` — RED (ModuleNotFoundError) then GREEN, 12 unittest tests OK.
 
 ## Pending user actions
 
