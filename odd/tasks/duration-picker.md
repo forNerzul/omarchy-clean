@@ -40,6 +40,16 @@ Let the user choose the lock duration when the app opens, including a
 - Task 4: `5d400de` — RED/GREEN, 129 tests; keybind migration in place.
 - Task 5: README (passive docs).
 
+- Review `review-d313014aa9d97b63` (a9b3a98..1bf6c1c): approved without
+  corrections, acknowledged.
+
+## Follow-ups from review (advisory)
+
+- A picker failure (e.g. omarchy-shell not running, non-cancel exit code)
+  looks like a silent cancel: the keybind does nothing. Distinguish cancel
+  from failure and fall back to 60 s or notify.
+- Skipped lid-switch devices are not reported anywhere.
+
 ## Pending
 
 - Hardware check: reinstall, picker appears from SUPER+SHIFT+K, No limit
