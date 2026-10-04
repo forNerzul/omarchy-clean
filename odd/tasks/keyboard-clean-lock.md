@@ -31,12 +31,12 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
 - [x] 5. Install + docs: install script (`/usr/local`), polkit action,
       Hyprland keybind, hyprpolkitagent autostart, README usage and safety.
 
-- [ ] 6. Helper never blocks on a stalled overlay: non-blocking stdout,
+- [x] 6. Helper never blocks on a stalled overlay: non-blocking stdout,
       drop ticks on EAGAIN so the timer is always enforced.
-- [ ] 7. End the lock after a system suspend (CLOCK_BOOTTIME vs
+- [x] 7. End the lock after a system suspend (CLOCK_BOOTTIME vs
       CLOCK_MONOTONIC gap) with reason `suspend`, so the lock screen is usable
       on resume.
-- [ ] 8. `uninstall.sh`/`install.sh` refuse to edit `bindings.lua` when the
+- [x] 8. `uninstall.sh`/`install.sh` refuse to edit `bindings.lua` when the
       start marker has no matching end marker.
 
 ## Evidence
@@ -51,10 +51,14 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
   root-refusal test), `bash -n` clean; installer only tested `--user-only`
   with stubs.
 
+- Task 6: `2c2614e` — RED then GREEN, 54 tests OK.
+- Task 7: `ebd3852` — RED then GREEN, 62 tests OK.
+- Task 8: `9a87958` — RED (8 failures) then GREEN, `make check` 64 tests OK.
+
 ## Manual verification still pending (needs sudo + packages)
 
 - Real lock on hardware: devices grabbed, keys/trackpad/power key blocked,
-  timer unlock, Esc+Enter hold unlock, overlay on screen, idle not locking.
+  timer unlock, Esc+Enter hold unlock, lid close/suspend unlocks on resume, overlay on screen, idle not locking.
 - System install steps of `install.sh`.
 
 ## Pending user actions
