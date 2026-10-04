@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import signal
 import subprocess
 import sys
@@ -16,6 +15,7 @@ gi.require_version("Gtk4LayerShell", "1.0")
 
 from gi.repository import Gdk, Gio, GLib, Gtk, Gtk4LayerShell  # noqa: E402
 
+from omarchy_clean.paths import default_helper_path  # noqa: E402
 from omarchy_clean.overlay_model import (  # noqa: E402
     OverlayState,
     apply_event,
@@ -25,7 +25,6 @@ from omarchy_clean.overlay_model import (  # noqa: E402
 )
 
 APP_ID = "dev.omarchy.Clean"
-DEFAULT_HELPER = "/usr/local/lib/omarchy-clean/bin/omarchy-clean-helper"
 DEFAULT_SECONDS = 60
 MAX_SECONDS = 600
 UNLOCKED_LINGER_MS = 1000
@@ -57,7 +56,7 @@ def _parse_args(argv):
     parser.add_argument("seconds", nargs="?", type=_seconds, default=DEFAULT_SECONDS,
                         help=f"lock duration, 1..{MAX_SECONDS} (default {DEFAULT_SECONDS})")
     parser.add_argument("--helper",
-                        default=os.environ.get("OMARCHY_CLEAN_HELPER", DEFAULT_HELPER),
+                        default=default_helper_path(),
                         help="path to the root helper")
     parser.add_argument("--no-pkexec", action="store_true",
                         help="run the helper directly (dev/testing only)")

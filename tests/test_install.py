@@ -128,13 +128,13 @@ class InstallScriptTest(unittest.TestCase):
 
 
 class PolicyTest(unittest.TestCase):
-    def test_policy_parses_and_names_helper(self):
-        tree = ET.parse(ROOT / "packaging" / "dev.omarchy.clean.policy")
+    def test_policy_template_parses_and_has_placeholder(self):
+        tree = ET.parse(ROOT / "packaging" / "dev.omarchy.clean.policy.in")
         action = tree.getroot().find("action")
         self.assertEqual(action.get("id"), "dev.omarchy.clean.helper")
         annotate = {a.get("key"): a.text for a in action.findall("annotate")}
         self.assertEqual(annotate["org.freedesktop.policykit.exec.path"],
-                         "/usr/local/lib/omarchy-clean/bin/omarchy-clean-helper")
+                         "@HELPER_PATH@")
 
 
 if __name__ == "__main__":

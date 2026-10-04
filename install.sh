@@ -8,7 +8,6 @@ APPS_DIR="${APPS_DIR:-$HOME/.local/share/applications}"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$PREFIX/lib/omarchy-clean"
 POLICY_DIR=/usr/share/polkit-1/actions
-DEFAULT_PREFIX=/usr/local
 BEGIN_MARK='-- >>> omarchy-clean >>>'
 END_MARK='-- <<< omarchy-clean <<<'
 PACKAGES=(python-evdev hyprpolkitagent python-gobject gtk4 gtk4-layer-shell polkit)
@@ -61,23 +60,15 @@ install_system() {
     sudo install -m 755 "$SRC_DIR/bin/omarchy-clean" "$SRC_DIR/bin/omarchy-clean-helper" "$LIB_DIR/bin/"
 
     sudo install -d -m 755 "$PREFIX/bin"
-    if [ "$PREFIX" = "$DEFAULT_PREFIX" ]; then
-        sudo ln -sf "$LIB_DIR/bin/omarchy-clean" "$PREFIX/bin/omarchy-clean"
-    else
-        # The overlay's default helper path assumes /usr/local, so point it at ours.
-        local wrapper
-        wrapper="$(mktemp)"
-        printf '#!/bin/sh\nexport OMARCHY_CLEAN_HELPER="%s/bin/omarchy-clean-helper"\nexec "%s/bin/omarchy-clean" "$@"\n' \
-            "$LIB_DIR" "$LIB_DIR" > "$wrapper"
-        sudo rm -f "$PREFIX/bin/omarchy-clean"
-        sudo install -m 755 "$wrapper" "$PREFIX/bin/omarchy-clean"
-        rm -f "$wrapper"
-        echo "Note: the polkit policy pins $DEFAULT_PREFIX/lib/omarchy-clean/bin/omarchy-clean-helper;" >&2
-        echo "      edit packaging/dev.omarchy.clean.policy to match PREFIX=$PREFIX." >&2
-    fi
+    sudo ln -sf "$LIB_DIR/bin/omarchy-clean" "$PREFIX/bin/omarchy-clean"
 
     sudo install -d -m 755 "$POLICY_DIR"
-    sudo install -m 644 "$SRC_DIR/packaging/dev.omarchy.clean.policy" "$POLICY_DIR/"
+    local policy
+    policy="$(mktemp)"
+    sed "s|@HELPER_PATH@|$LIB_DIR/bin/omarchy-clean-helper|" \
+        "$SRC_DIR/packaging/dev.omarchy.clean.policy.in" > "$policy"
+    sudo install -m 644 "$policy" "$POLICY_DIR/dev.omarchy.clean.policy"
+    rm -f "$policy"
 }
 
 enable_polkit_agent() {
