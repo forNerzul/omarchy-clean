@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
-# Remove omarchy-clean. Run as your normal user; sudo is used for system steps only.
+# Remove omarchy-clean. Run as your normal user; sudo is used for system files only.
 set -euo pipefail
 
 PREFIX="${PREFIX:-/usr/local}"
-HYPR_CONFIG_DIR="${HYPR_CONFIG_DIR:-$HOME/.config/hypr}"
-APPS_DIR="${APPS_DIR:-$HOME/.local/share/applications}"
-BEGIN_MARK='-- >>> omarchy-clean >>>'
-END_MARK='-- <<< omarchy-clean <<<'
+SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 user_only=0
 for arg in "$@"; do
@@ -22,44 +19,6 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
-validate_markers() {
-    local file="$1"
-    [ -f "$file" ] || return 0
-    local state
-    state="$(awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
-        $0 == b { nb++; if (ne > 0) bad = 1 }
-        $0 == e { ne++; if (nb == 0) bad = 1 }
-        END { print (nb == 0 && ne == 0) || (!bad && nb == 1 && ne == 1) ? "ok" : "bad" }
-    ' "$file")"
-    if [ "$state" != ok ]; then
-        echo "error: $file has an inconsistent omarchy-clean block (markers '$BEGIN_MARK' / '$END_MARK')." >&2
-        echo "Fix or remove the block manually, then re-run. The file was not modified." >&2
-        exit 1
-    fi
-}
-
-file="$HYPR_CONFIG_DIR/bindings.lua"
-validate_markers "$file"
-if [ -f "$file" ] && grep -qF -- "$BEGIN_MARK" "$file"; then
-    tmp="$(mktemp)"
-    awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
-        $0 == b { skip = 1; next }
-        skip && $0 == e { skip = 0; next }
-        !skip { print }
-    ' "$file" > "$tmp"
-    cat "$tmp" > "$file"
-    rm -f "$tmp"
-fi
-
-rm -f "$APPS_DIR/omarchy-clean.desktop"
-
-if [ "$user_only" -eq 0 ]; then
-    sudo rm -rf "$PREFIX/lib/omarchy-clean"
-    sudo rm -f "$PREFIX/bin/omarchy-clean" /usr/share/polkit-1/actions/dev.omarchy.clean.policy
-fi
-
-if command -v hyprctl >/dev/null 2>&1; then
-    hyprctl reload >/dev/null 2>&1 || true
-fi
+"$SRC_DIR/bin/omarchy-clean-setup" --remove
+[ "$user_only" -eq 1 ] || sudo make -C "$SRC_DIR" uninstall PREFIX="$PREFIX"
 echo "omarchy-clean removed."
-echo "Note: hyprpolkitagent.service was left enabled (other apps use it)."

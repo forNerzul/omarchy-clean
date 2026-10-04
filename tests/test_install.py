@@ -6,35 +6,32 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BEGIN = "-- >>> omarchy-clean >>>"
-END = "-- <<< omarchy-clean <<<"
-ORIGINAL = 'local o = require("omarchy")\no.bind("SUPER + T", "Terminal", "xdg-terminal")\n'
 
 
-class InstallScriptTest(unittest.TestCase):
+class WrapperTest(unittest.TestCase):
+    """install.sh / uninstall.sh are thin wrappers; setup and make are stubbed."""
+
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.tmp = Path(tmp.name)
-        self.home = self.tmp / "home"
-        self.hypr = self.home / ".config" / "hypr"
-        self.apps = self.home / ".local" / "share" / "applications"
-        self.hypr.mkdir(parents=True)
-        self.bindings = self.hypr / "bindings.lua"
-        self.bindings.write_text(ORIGINAL)
         self.log = self.tmp / "calls.log"
         stubs = self.tmp / "stubs"
         stubs.mkdir()
-        for name in ("systemctl", "hyprctl"):
+        for name in ("sudo", "pacman"):
             self._stub(stubs / name, f'echo "{name} $*" >> "{self.log}"\n')
-        self._stub(stubs / "sudo", f'echo "sudo $*" >> "{self.log}"\nexit 1\n')
+        self._stub(stubs / "systemctl", "exit 0\n")
+        self._stub(stubs / "hyprctl", "exit 0\n")
+        self.home = self.tmp / "home"
+        (self.home / ".config" / "hypr").mkdir(parents=True)
         self.env = dict(
             os.environ,
             HOME=str(self.home),
-            HYPR_CONFIG_DIR=str(self.hypr),
-            APPS_DIR=str(self.apps),
+            HYPR_CONFIG_DIR=str(self.home / ".config" / "hypr"),
+            APPS_DIR=str(self.home / "apps"),
             PATH=f"{stubs}:{os.environ['PATH']}",
         )
+        self.env.pop("PREFIX", None)
 
     @staticmethod
     def _stub(path, body):
@@ -48,83 +45,52 @@ class InstallScriptTest(unittest.TestCase):
     def calls(self):
         return self.log.read_text() if self.log.exists() else ""
 
-    def test_install_appends_block_once(self):
-        for _ in range(2):
-            result = self.run_script("install.sh", "--user-only")
-            self.assertEqual(result.returncode, 0, result.stderr)
-        text = self.bindings.read_text()
-        self.assertTrue(text.startswith(ORIGINAL))
-        self.assertEqual(text.count(BEGIN), 1)
-        self.assertEqual(text.count(END), 1)
-        self.assertIn('o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean 60")', text)
+    def bindings(self):
+        return (self.home / ".config" / "hypr" / "bindings.lua").read_text()
 
-    def test_install_writes_desktop_file_and_enables_agent(self):
-        self.run_script("install.sh", "--user-only")
-        desktop = (self.apps / "omarchy-clean.desktop").read_text()
-        for line in ("Name=Clean Keyboard", "Exec=omarchy-clean 60",
-                     "Icon=input-keyboard", "Categories=Utility;"):
-            self.assertIn(line, desktop)
-        self.assertIn("systemctl --user enable --now hyprpolkitagent.service", self.calls())
-        self.assertIn("hyprctl reload", self.calls())
-
-    def test_install_creates_missing_bindings(self):
-        self.bindings.unlink()
-        self.run_script("install.sh", "--user-only")
-        self.assertIn(BEGIN, self.bindings.read_text())
-
-    def test_no_keybind_leaves_bindings_alone(self):
-        self.run_script("install.sh", "--user-only", "--no-keybind")
-        self.assertEqual(self.bindings.read_text(), ORIGINAL)
-
-    def test_uninstall_restores_bindings_byte_identical(self):
-        self.run_script("install.sh", "--user-only")
-        result = self.run_script("uninstall.sh", "--user-only")
+    def test_install_user_only_runs_setup_without_sudo(self):
+        result = self.run_script("install.sh", "--user-only")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.bindings.read_bytes(), ORIGINAL.encode())
-        self.assertFalse((self.apps / "omarchy-clean.desktop").exists())
+        self.assertIn("omarchy-clean", self.bindings())
+        self.assertNotIn("sudo", self.calls())
 
-    def _assert_refused(self, script, content):
-        self.bindings.write_text(content)
-        desktop = self.apps / "omarchy-clean.desktop"
-        self.apps.mkdir(parents=True)
-        desktop.write_text("sentinel")
-        result = self.run_script(script, "--user-only")
+    def test_install_passes_no_keybind_through(self):
+        self.run_script("install.sh", "--user-only", "--no-keybind")
+        self.assertFalse((self.home / ".config" / "hypr" / "bindings.lua").exists())
+
+    def test_install_runs_make_via_sudo(self):
+        self.env["PREFIX"] = "/usr"
+        result = self.run_script("install.sh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"sudo make -C {ROOT} install PREFIX=/usr", self.calls())
+
+    def test_install_default_prefix(self):
+        self.run_script("install.sh")
+        self.assertIn(f"sudo make -C {ROOT} install PREFIX=/usr/local", self.calls())
+
+    def test_install_missing_packages_prints_pacman_command(self):
+        self._stub(self.tmp / "stubs" / "pacman", "exit 1\n")
+        result = self.run_script("install.sh")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("bindings.lua", result.stderr)
-        self.assertEqual(self.bindings.read_bytes(), content.encode())
-        self.assertEqual(desktop.read_text(), "sentinel")
-        self.assertNotIn("hyprctl", self.calls())
+        self.assertIn("sudo pacman -S", result.stderr)
+        self.assertNotIn("sudo make", self.calls())
 
-    def _bad_states(self):
-        block = f"{BEGIN}\no.bind()\n{END}\n"
-        return {
-            "start_without_end": f"{ORIGINAL}{BEGIN}\no.bind()\ntrailing = 1\n",
-            "end_without_start": f"{ORIGINAL}{END}\n",
-            "end_before_start": f"{ORIGINAL}{END}\n{BEGIN}\n",
-            "two_blocks": f"{ORIGINAL}{block}{block}",
-        }
-
-    def test_install_refuses_invalid_markers(self):
-        for name, content in self._bad_states().items():
-            with self.subTest(name):
-                self.setUp()
-                self._assert_refused("install.sh", content)
-
-    def test_uninstall_refuses_invalid_markers(self):
-        for name, content in self._bad_states().items():
-            with self.subTest(name):
-                self.setUp()
-                self._assert_refused("uninstall.sh", content)
-
-    def test_user_only_never_calls_sudo(self):
+    def test_uninstall_removes_block_then_runs_make_uninstall(self):
         self.run_script("install.sh", "--user-only")
+        result = self.run_script("uninstall.sh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("omarchy-clean", self.bindings())
+        self.assertIn(f"sudo make -C {ROOT} uninstall PREFIX=/usr/local", self.calls())
+
+    def test_uninstall_user_only_never_calls_sudo(self):
         self.run_script("uninstall.sh", "--user-only")
         self.assertNotIn("sudo", self.calls())
 
     def test_refuses_root(self):
         if os.geteuid() != 0:
             self.skipTest("only meaningful as root")
-        self.assertNotEqual(self.run_script("install.sh", "--user-only").returncode, 0)
+        for name in ("install.sh", "uninstall.sh"):
+            self.assertNotEqual(self.run_script(name, "--user-only").returncode, 0)
 
 
 class PolicyTest(unittest.TestCase):

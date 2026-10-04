@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# Per-user omarchy-clean setup. Run as your normal user; never touches system files.
+set -euo pipefail
+
+HYPR_CONFIG_DIR="${HYPR_CONFIG_DIR:-$HOME/.config/hypr}"
+APPS_DIR="${APPS_DIR:-$HOME/.local/share/applications}"
+BEGIN_MARK='-- >>> omarchy-clean >>>'
+END_MARK='-- <<< omarchy-clean <<<'
+
+remove=0
+keybind=1
+for arg in "$@"; do
+    case "$arg" in
+        --remove) remove=1 ;;
+        --no-keybind) keybind=0 ;;
+        -h|--help) echo "usage: omarchy-clean-setup [--remove] [--no-keybind]"; exit 0 ;;
+        *) echo "unknown option: $arg" >&2; exit 2 ;;
+    esac
+done
+
+if [ "$EUID" -eq 0 ]; then
+    echo "Run omarchy-clean-setup as your normal user, not root." >&2
+    exit 1
+fi
+
+validate_markers() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    local state
+    state="$(awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+        $0 == b { nb++; if (ne > 0) bad = 1 }
+        $0 == e { ne++; if (nb == 0) bad = 1 }
+        END { print (nb == 0 && ne == 0) || (!bad && nb == 1 && ne == 1) ? "ok" : "bad" }
+    ' "$file")"
+    if [ "$state" != ok ]; then
+        echo "error: $file has an inconsistent omarchy-clean block (markers '$BEGIN_MARK' / '$END_MARK')." >&2
+        echo "Fix or remove the block manually, then re-run. The file was not modified." >&2
+        exit 1
+    fi
+}
+
+enable_polkit_agent() {
+    if systemctl --user cat hyprpolkitagent.service >/dev/null 2>&1; then
+        systemctl --user enable --now hyprpolkitagent.service || echo "warning: could not enable hyprpolkitagent" >&2
+    else
+        echo "warning: hyprpolkitagent.service not found; skipping (install hyprpolkitagent)" >&2
+    fi
+}
+
+add_keybind() {
+    local file="$HYPR_CONFIG_DIR/bindings.lua"
+    mkdir -p "$HYPR_CONFIG_DIR"
+    touch "$file"
+    if grep -qF -- "$BEGIN_MARK" "$file"; then
+        return
+    fi
+    # Keep the original bytes intact: only add a newline if the file lacks one.
+    if [ -s "$file" ] && [ -n "$(tail -c1 "$file")" ]; then
+        echo >> "$file"
+    fi
+    {
+        echo "$BEGIN_MARK"
+        echo 'o.bind("SUPER + SHIFT + K", "Clean keyboard", "omarchy-clean 60")'
+        echo "$END_MARK"
+    } >> "$file"
+}
+
+remove_keybind() {
+    local file="$HYPR_CONFIG_DIR/bindings.lua"
+    if [ -f "$file" ] && grep -qF -- "$BEGIN_MARK" "$file"; then
+        local tmp
+        tmp="$(mktemp)"
+        awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+            $0 == b { skip = 1; next }
+            skip && $0 == e { skip = 0; next }
+            !skip { print }
+        ' "$file" > "$tmp"
+        cat "$tmp" > "$file"
+        rm -f "$tmp"
+    fi
+}
+
+reload_hyprland() {
+    if command -v hyprctl >/dev/null 2>&1; then
+        hyprctl reload >/dev/null 2>&1 || true
+    fi
+}
+
+if [ "$remove" -eq 1 ] || [ "$keybind" -eq 1 ]; then
+    validate_markers "$HYPR_CONFIG_DIR/bindings.lua"
+fi
+
+# Migration: the system-wide desktop file replaces the old per-user one.
+rm -f "$APPS_DIR/omarchy-clean.desktop"
+
+if [ "$remove" -eq 1 ]; then
+    remove_keybind
+    reload_hyprland
+    echo "omarchy-clean user setup removed."
+    echo "Note: hyprpolkitagent.service was left enabled (other apps use it)."
+else
+    enable_polkit_agent
+    [ "$keybind" -eq 0 ] || add_keybind
+    reload_hyprland
+    echo "omarchy-clean user setup done."
+fi

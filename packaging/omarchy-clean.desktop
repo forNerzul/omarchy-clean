@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Clean Keyboard
+Comment=Lock keyboard and touchpad while cleaning
+Exec=omarchy-clean 60
+Icon=input-keyboard
+Terminal=false
+Type=Application
+Categories=Utility;
