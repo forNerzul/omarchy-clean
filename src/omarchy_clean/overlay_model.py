@@ -29,7 +29,7 @@ def format_remaining(seconds: float) -> str:
     return f"{total // 60}:{total % 60:02d}"
 
 
-UNLIMITED_HEADLINE = "Hold Esc + Enter to unlock"
+UNLIMITED_HEADLINE = "No time limit"
 UNLOCK_HINT = "Hold Esc + Enter for 3 seconds to unlock"
 
 

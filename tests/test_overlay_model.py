@@ -112,7 +112,7 @@ class LockedLabelsTests(unittest.TestCase):
         self.assertEqual(
             locked_labels(s),
             (
-                "Hold Esc + Enter to unlock",
+                "No time limit",
                 "Hold Esc + Enter for 3 seconds to unlock",
                 "Releases automatically in 1:05",
             ),
