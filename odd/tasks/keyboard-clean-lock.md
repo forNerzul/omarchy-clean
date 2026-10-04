@@ -69,4 +69,4 @@ None.
 
 ## Pending user actions
 
-- `sudo pacman -S python-evdev hyprpolkitagent` (sudo needs a password).
+None (packages installed, installer run).
