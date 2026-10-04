@@ -59,12 +59,13 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
 
 - 2026-10-04, user: lock + lid close + reopen -> session lock screen shown,
   password typed normally, laptop usable afterwards (task 7 confirmed).
+- 2026-10-04, user: timer unlock at 0:00 OK; Esc+Enter held 3 s unlocks OK;
+  keyboard, trackpad, power and brightness keys inert while locked; long
+  lock (300 s) kept the screen awake without idle lock.
 
-## Manual verification still pending (needs sudo + packages)
+## Manual verification still pending
 
-- Real lock on hardware: devices grabbed, keys/trackpad/power key blocked,
-  timer unlock, Esc+Enter hold unlock, overlay on screen, idle not locking.
-- System install steps of `install.sh`.
+None.
 
 ## Pending user actions
 
