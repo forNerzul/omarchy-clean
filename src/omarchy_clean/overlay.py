@@ -18,6 +18,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk, Gtk4LayerShell  # noqa: E402
 
 from omarchy_clean.core import MAX_LOCK_SECONDS  # noqa: E402
 from omarchy_clean.paths import default_helper_path  # noqa: E402
+from omarchy_clean.picker import pick_duration, resolve_duration  # noqa: E402
 from omarchy_clean.overlay_model import (  # noqa: E402
     OverlayState,
     apply_event,
@@ -28,7 +29,6 @@ from omarchy_clean.overlay_model import (  # noqa: E402
 )
 
 APP_ID = "dev.omarchy.Clean"
-DEFAULT_DURATION = "60"
 UNLOCKED_LINGER_MS = 1000
 
 CSS = b"""
@@ -41,9 +41,10 @@ progressbar { min-width: 400px; }
 """
 
 
-def _duration(value: str) -> tuple[int, bool]:
+def _duration(value: str) -> str:
     try:
-        return parse_duration_arg(value)
+        parse_duration_arg(value)
+        return value
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from None
 
@@ -54,9 +55,9 @@ def _parse_args(argv):
         description="Lock keyboard and trackpad so they can be cleaned.",
     )
     parser.add_argument("duration", nargs="?", type=_duration,
-                        default=_duration(DEFAULT_DURATION),
+                        default=None,
                         help=f"seconds, 1..{MAX_LOCK_SECONDS}, or 'unlimited' "
-                        f"(until Esc + Enter; default {DEFAULT_DURATION})")
+                        "(until Esc + Enter); omit to choose from a menu")
     parser.add_argument("--helper",
                         default=default_helper_path(),
                         help="path to the root helper")
@@ -234,8 +235,12 @@ class CleanApp(Gtk.Application):
             progress.set_visible(combo > 0)
 
 
-def main(argv=None) -> int:
+def main(argv=None, pick=pick_duration) -> int:
     args = _parse_args(argv)
+    duration = resolve_duration(args.duration, pick)
+    if duration is None:  # picker cancelled
+        return 0
+    args.duration = duration
     app = CleanApp(args)
     app.run([sys.argv[0]])
     return app.exit_code
