@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import signal
 import subprocess
 import sys
@@ -15,18 +16,19 @@ gi.require_version("Gtk4LayerShell", "1.0")
 
 from gi.repository import Gdk, Gio, GLib, Gtk, Gtk4LayerShell  # noqa: E402
 
+from omarchy_clean.core import MAX_LOCK_SECONDS  # noqa: E402
 from omarchy_clean.paths import default_helper_path  # noqa: E402
 from omarchy_clean.overlay_model import (  # noqa: E402
     OverlayState,
     apply_event,
-    format_remaining,
     helper_exit_outcome,
+    locked_labels,
+    parse_duration_arg,
     parse_status_line,
 )
 
 APP_ID = "dev.omarchy.Clean"
-DEFAULT_SECONDS = 60
-MAX_SECONDS = 600
+DEFAULT_DURATION = "60"
 UNLOCKED_LINGER_MS = 1000
 
 CSS = b"""
@@ -34,18 +36,16 @@ window.omarchy-clean { background-color: #000000; }
 .countdown { font-size: 160px; font-weight: bold; color: #ffffff; }
 .status { font-size: 32px; color: #dddddd; }
 .hint { font-size: 22px; color: #888888; }
+.footnote { font-size: 18px; color: #555555; }
 progressbar { min-width: 400px; }
 """
 
 
-def _seconds(value: str) -> int:
+def _duration(value: str) -> tuple[int, bool]:
     try:
-        n = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"invalid integer: {value!r}") from None
-    if not 1 <= n <= MAX_SECONDS:
-        raise argparse.ArgumentTypeError(f"must be between 1 and {MAX_SECONDS}")
-    return n
+        return parse_duration_arg(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def _parse_args(argv):
@@ -53,8 +53,10 @@ def _parse_args(argv):
         prog="omarchy-clean",
         description="Lock keyboard and trackpad so they can be cleaned.",
     )
-    parser.add_argument("seconds", nargs="?", type=_seconds, default=DEFAULT_SECONDS,
-                        help=f"lock duration, 1..{MAX_SECONDS} (default {DEFAULT_SECONDS})")
+    parser.add_argument("duration", nargs="?", type=_duration,
+                        default=_duration(DEFAULT_DURATION),
+                        help=f"seconds, 1..{MAX_LOCK_SECONDS}, or 'unlimited' "
+                        f"(until Esc + Enter; default {DEFAULT_DURATION})")
     parser.add_argument("--helper",
                         default=default_helper_path(),
                         help="path to the root helper")
@@ -67,10 +69,10 @@ class CleanApp(Gtk.Application):
     def __init__(self, args):
         super().__init__(application_id=APP_ID)
         self.args = args
-        self.state = OverlayState()
+        self.state = OverlayState(unlimited=args.duration[1])
         self.exit_code = 0
         self.windows = []
-        self.widgets = []  # (countdown, progress, status) per window
+        self.widgets = []  # (countdown, progress, status, hint, footnote)
         self.subprocess = None
         self.inhibit_cookie = 0
         self.finishing = False
@@ -84,13 +86,14 @@ class CleanApp(Gtk.Application):
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
-        argv = [self.args.helper, str(self.args.seconds)]
+        argv = [self.args.helper, str(self.args.duration[0])]
         if not self.args.no_pkexec:
             argv.insert(0, "pkexec")
         try:
             self.subprocess = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE)
         except GLib.Error as exc:
-            self.state = OverlayState(phase="failed", message=f"cannot start helper: {exc.message}")
+            self.state = replace(self.state, phase="failed",
+                                 message=f"cannot start helper: {exc.message}")
             self.finish()
             return
         self.hold()  # keep the app alive while no window exists
@@ -194,29 +197,38 @@ class CleanApp(Gtk.Application):
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24,
                       halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
-        countdown = Gtk.Label(label=format_remaining(self.state.remaining))
+        headline, hint_text, footnote_text = locked_labels(self.state)
+        countdown = Gtk.Label(label=headline)
         countdown.add_css_class("countdown")
         status = Gtk.Label(label="Keyboard and trackpad locked")
         status.add_css_class("status")
-        hint = Gtk.Label(label="Hold Esc + Enter for 3 seconds to unlock")
+        hint = Gtk.Label(label=hint_text)
         hint.add_css_class("hint")
         progress = Gtk.ProgressBar(halign=Gtk.Align.CENTER)
         progress.set_visible(False)
-        for child in (countdown, status, hint, progress):
+        footnote = Gtk.Label(label=footnote_text or "")
+        footnote.add_css_class("footnote")
+        footnote.set_visible(footnote_text is not None)
+        for child in (countdown, status, hint, progress, footnote):
             box.append(child)
         window.set_child(box)
-        self.widgets.append((countdown, progress, status))
+        self.widgets.append((countdown, progress, status, hint, footnote))
         return window
 
     def refresh(self):
         unlocked = self.state.phase == "unlocked"
-        for countdown, progress, status in self.widgets:
+        headline, _hint, footnote_text = locked_labels(self.state)
+        for countdown, progress, status, hint, footnote in self.widgets:
             if unlocked:
                 countdown.set_label("Unlocked")
                 status.set_label("")
+                hint.set_label("")
+                footnote.set_visible(False)
                 progress.set_visible(False)
                 continue
-            countdown.set_label(format_remaining(self.state.remaining))
+            countdown.set_label(headline)
+            if footnote_text is not None:
+                footnote.set_label(footnote_text)
             combo = max(0.0, min(1.0, self.state.combo))
             progress.set_fraction(combo)
             progress.set_visible(combo > 0)

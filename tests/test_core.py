@@ -24,7 +24,7 @@ class SelectDevicesTest(unittest.TestCase):
         self.assertEqual(KEY_ENTER, 28)
         self.assertEqual(DEFAULT_UNLOCK_KEYS, frozenset({1, 28}))
         self.assertEqual(DEFAULT_HOLD_SECONDS, 3.0)
-        self.assertEqual(MAX_LOCK_SECONDS, 600)
+        self.assertEqual(MAX_LOCK_SECONDS, 1800)
 
     def test_duplicates_order_and_missing(self) -> None:
         available = [

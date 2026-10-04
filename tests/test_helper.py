@@ -365,8 +365,11 @@ class MainTests(unittest.TestCase):
         self.assertTrue(err)
 
     def test_rejects_too_long(self):
-        code, _ = self._main(["601"])
+        code, _ = self._main(["1801"])
         self.assertEqual(code, 2)
+
+    def test_accepts_max(self):
+        self.assertEqual(helper._parse_args(["1800"]).seconds, 1800)
 
     def test_rejects_negative(self):
         code, _ = self._main(["-5"])

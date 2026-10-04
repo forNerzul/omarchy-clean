@@ -5,6 +5,8 @@ from omarchy_clean.overlay_model import (
     apply_event,
     format_remaining,
     helper_exit_outcome,
+    locked_labels,
+    parse_duration_arg,
     parse_status_line,
 )
 
@@ -80,6 +82,48 @@ class HelperExitTests(unittest.TestCase):
     def test_failed_default_message(self):
         s = helper_exit_outcome(OverlayState(), 3)
         self.assertEqual(s.message, "helper exited with code 3")
+
+
+class ParseDurationArgTests(unittest.TestCase):
+    def test_unlimited(self):
+        self.assertEqual(parse_duration_arg("unlimited"), (1800, True))
+        self.assertEqual(parse_duration_arg("UNLIMITED"), (1800, True))
+
+    def test_integers(self):
+        self.assertEqual(parse_duration_arg("60"), (60, False))
+        self.assertEqual(parse_duration_arg("1800"), (1800, False))
+
+    def test_invalid(self):
+        for text in ["0", "1801", "-5", "abc", ""]:
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                parse_duration_arg(text)
+
+
+class LockedLabelsTests(unittest.TestCase):
+    def test_timed(self):
+        s = OverlayState(phase="locked", remaining=65)
+        self.assertEqual(
+            locked_labels(s),
+            ("1:05", "Hold Esc + Enter for 3 seconds to unlock", None),
+        )
+
+    def test_unlimited(self):
+        s = OverlayState(phase="locked", remaining=65, unlimited=True)
+        self.assertEqual(
+            locked_labels(s),
+            (
+                "Hold Esc + Enter to unlock",
+                "Hold Esc + Enter for 3 seconds to unlock",
+                "Releases automatically in 1:05",
+            ),
+        )
+
+    def test_unlimited_survives_events(self):
+        s = OverlayState(unlimited=True)
+        s = apply_event(s, {"event": "locked", "duration": 1800})
+        s = apply_event(s, {"event": "tick", "remaining": 5, "combo": 0})
+        self.assertTrue(s.unlimited)
+        self.assertTrue(helper_exit_outcome(s, 1).unlimited)
 
 
 if __name__ == "__main__":
