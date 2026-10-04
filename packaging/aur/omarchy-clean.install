@@ -1,0 +1,18 @@
+post_install() {
+  echo ">> Each user should run: omarchy-clean-setup"
+  echo "   (adds the SUPER+SHIFT+K keybind and enables hyprpolkitagent)"
+}
+
+post_upgrade() {
+  post_install
+}
+
+pre_remove() {
+  echo ">> Before removing, each user should run: omarchy-clean-setup --remove"
+  echo "   (drops the SUPER+SHIFT+K keybind)"
+}
+
+post_remove() {
+  echo ">> If you have not yet, run: omarchy-clean-setup --remove"
+  echo "   to drop the SUPER+SHIFT+K keybind from your Hyprland config."
+}

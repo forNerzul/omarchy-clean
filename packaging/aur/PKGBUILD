@@ -1,0 +1,27 @@
+# Maintainer: Sergio Javier Garcia Martinez <sbeardman92 at gmail dot com>
+pkgname=omarchy-clean
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Lock keyboard, touchpad and system keys while cleaning a laptop on Omarchy (Hyprland)"
+arch=('any')
+url="https://github.com/forNerzul/omarchy-clean"
+license=('MIT')
+depends=('python' 'python-evdev' 'python-gobject' 'gtk4' 'gtk4-layer-shell'
+         'polkit' 'hyprpolkitagent' 'hyprland')
+install=omarchy-clean.install
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# Replace with real checksums via `updpkgsums` once the v$pkgver tag exists.
+sha256sums=('SKIP')
+
+check() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make test
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" PREFIX=/usr install
+  # Pre-compile so the root helper never writes __pycache__ into /usr.
+  python -m compileall -q -d /usr/lib/omarchy-clean/src "$pkgdir/usr/lib/omarchy-clean/src"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
