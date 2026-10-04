@@ -31,6 +31,14 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
 - [x] 5. Install + docs: install script (`/usr/local`), polkit action,
       Hyprland keybind, hyprpolkitagent autostart, README usage and safety.
 
+- [ ] 6. Helper never blocks on a stalled overlay: non-blocking stdout,
+      drop ticks on EAGAIN so the timer is always enforced.
+- [ ] 7. End the lock after a system suspend (CLOCK_BOOTTIME vs
+      CLOCK_MONOTONIC gap) with reason `suspend`, so the lock screen is usable
+      on resume.
+- [ ] 8. `uninstall.sh`/`install.sh` refuse to edit `bindings.lua` when the
+      start marker has no matching end marker.
+
 ## Evidence
 
 - Task 1: `336cdf5` — `make test` runner works (0 tests, exit 5 expected).

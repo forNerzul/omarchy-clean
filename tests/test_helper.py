@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 import threading
 import unittest
 from types import SimpleNamespace
@@ -189,6 +190,93 @@ class RunLockTests(unittest.TestCase):
         self.assertEqual(env.run(5.0, out=out), "output-closed")
         self.assertEqual(out.getvalue().count("\n"), 2)
         self.assertTrue(all(d.ungrab_calls == 1 for d in env.devices))
+
+
+class BlockedOut:
+    """Writer whose write raises BlockingIOError for the first `blocked` calls (None = always)."""
+
+    def __init__(self, blocked=None, block_if=None):
+        self.blocked = blocked
+        self.block_if = block_if
+        self.calls = 0
+        self.written = []
+
+    def write(self, s):
+        self.calls += 1
+        if self.block_if is not None:
+            if self.block_if(self.calls, s):
+                raise BlockingIOError
+        elif self.blocked is None or self.calls <= self.blocked:
+            raise BlockingIOError
+        self.written.append(json.loads(s))
+        return len(s)
+
+    def flush(self):
+        pass
+
+
+class BlockingWriterTests(unittest.TestCase):
+    def test_timer_ends_while_writes_block(self):
+        env = Env()
+        out = BlockedOut()
+        self.assertEqual(env.run(1.0, out=out), "timer")
+        self.assertGreater(out.calls, 1)
+        self.assertTrue(all(d.ungrab_calls == 1 and not d.grabbed for d in env.devices))
+
+    def test_combo_ends_while_writes_block(self):
+        env = Env()
+        env.devices[0].events = [key(ESC, 1), key(ENTER, 1)]
+        self.assertEqual(env.run(60.0, out=BlockedOut()), "combo")
+        self.assertTrue(all(d.ungrab_calls == 1 for d in env.devices))
+
+    def test_later_lines_arrive_after_temporary_blocking(self):
+        env = Env()
+        # Block only tick lines, and only the first few of them.
+        out = BlockedOut(block_if=lambda n, s: '"tick"' in s and n <= 4)
+        self.assertEqual(env.run(1.0, out=out), "timer")
+        events = [l["event"] for l in out.written]
+        self.assertEqual(events[0], "locked")
+        self.assertEqual(events[-1], "unlocked")
+        self.assertIn("tick", events)
+
+    def test_blocked_unlocked_line_is_dropped(self):
+        env = Env()
+        out = BlockedOut(block_if=lambda n, s: '"unlocked"' in s)
+        self.assertEqual(env.run(1.0, out=out), "timer")
+        self.assertNotIn("unlocked", [l["event"] for l in out.written])
+        self.assertTrue(all(d.ungrab_calls == 1 for d in env.devices))
+
+    def test_blocked_error_line_is_dropped(self):
+        env = Env(3)
+        env.devices[2].grab_error = OSError(16, "busy")
+        self.assertEqual(env.run(1.0, out=BlockedOut()), "error")
+        self.assertEqual([d.ungrab_calls for d in env.devices], [1, 1, 0])
+
+
+class NonBlockingLineWriterTests(unittest.TestCase):
+    def setUp(self):
+        self.r, self.w = os.pipe()
+        self.addCleanup(os.close, self.r)
+        self.addCleanup(os.close, self.w)
+
+    def test_round_trip(self):
+        writer = helper.NonBlockingLineWriter(self.w)
+        writer.write('{"event": "tick"}\n')
+        writer.flush()
+        self.assertEqual(os.read(self.r, 100), b'{"event": "tick"}\n')
+
+    def test_full_pipe_raises_instead_of_hanging(self):
+        writer = helper.NonBlockingLineWriter(self.w)
+        line = "x" * 99 + "\n"
+        with self.assertRaises(BlockingIOError):
+            for _ in range(100000):
+                writer.write(line)
+        self.assertFalse(os.get_blocking(self.w))
+
+    def test_oversized_line_rejected(self):
+        writer = helper.NonBlockingLineWriter(self.w)
+        with self.assertRaises(ValueError):
+            writer.write("x" * 5000)
 
 
 class MainTests(unittest.TestCase):

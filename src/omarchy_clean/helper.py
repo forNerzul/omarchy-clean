@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import select
 import signal
 import sys
@@ -28,10 +29,39 @@ class _OutputClosed(Exception):
     pass
 
 
+PIPE_BUF = 4096
+
+
+class NonBlockingLineWriter:
+    """Write short lines to a pipe fd without ever blocking.
+
+    Assumes every line is < PIPE_BUF (our JSON status lines are tiny), so a
+    pipe write is atomic: it either fully succeeds or raises BlockingIOError.
+    Longer lines raise ValueError.
+    """
+
+    def __init__(self, fd: int) -> None:
+        self.fd = fd
+        os.set_blocking(fd, False)
+
+    def write(self, text: str) -> int:
+        data = text.encode("utf-8")
+        if len(data) >= PIPE_BUF:
+            raise ValueError("line too long for an atomic pipe write")
+        os.write(self.fd, data)
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+
 def _emit(out, **obj) -> None:
+    """Best-effort status line: drop it if the reader is not keeping up."""
     try:
         out.write(json.dumps(obj) + "\n")
         out.flush()
+    except BlockingIOError:  # must precede OSError; the lock must not stall
+        pass
     except OSError as exc:  # BrokenPipeError is an OSError
         raise _OutputClosed from exc
 
@@ -138,7 +168,7 @@ def main(argv=None) -> int:
     args = _parse_args(argv)
     import evdev  # lazy: only needed on the real CLI path
 
-    out = sys.stdout
+    out = NonBlockingLineWriter(sys.stdout.fileno())
     custom = bool(args.devices)
     wanted = tuple(args.devices) if custom else DEFAULT_DEVICE_NAMES
     required = wanted if custom else REQUIRED_DEFAULT_NAMES
