@@ -55,10 +55,15 @@ set time so the laptop can be wiped clean on Omarchy (Hyprland 0.56, Wayland).
 - Task 7: `ebd3852` — RED then GREEN, 62 tests OK.
 - Task 8: `9a87958` — RED (8 failures) then GREEN, `make check` 64 tests OK.
 
+## Manual verification (hardware)
+
+- 2026-10-04, user: lock + lid close + reopen -> session lock screen shown,
+  password typed normally, laptop usable afterwards (task 7 confirmed).
+
 ## Manual verification still pending (needs sudo + packages)
 
 - Real lock on hardware: devices grabbed, keys/trackpad/power key blocked,
-  timer unlock, Esc+Enter hold unlock, lid close/suspend unlocks on resume, overlay on screen, idle not locking.
+  timer unlock, Esc+Enter hold unlock, overlay on screen, idle not locking.
 - System install steps of `install.sh`.
 
 ## Pending user actions
