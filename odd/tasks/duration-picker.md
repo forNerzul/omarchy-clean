@@ -22,16 +22,25 @@ Let the user choose the lock duration when the app opens, including a
 
 ## Tasks
 
-- [ ] 1. Never grab a device that reports the lid switch (TDD).
-- [ ] 2. Raise the hard maximum to 1800 s; "no limit" mode in the overlay
+- [x] 1. Never grab a device that reports the lid switch (TDD).
+- [x] 2. Raise the hard maximum to 1800 s; "no limit" mode in the overlay
       (`omarchy-clean unlimited`): hint-first layout plus small "releases
       automatically in 30 min" note.
-- [ ] 3. Duration picker via `omarchy-menu-select` when no argument is given;
+- [x] 3. Duration picker via `omarchy-menu-select` when no argument is given;
       fallback to 60 s when unavailable.
-- [ ] 4. Keybind and desktop entry use the picker; `omarchy-clean-setup`
+- [x] 4. Keybind and desktop entry use the picker; `omarchy-clean-setup`
       updates an existing `omarchy-clean 60` block in place.
-- [ ] 5. README.
+- [x] 5. README.
 
 ## Evidence
 
-(commit ids and checks recorded per task)
+- Task 1: `acf525d` — RED (1 failure) then GREEN, 109 tests.
+- Task 2: `c89dac1` + `9c3ff03` — RED/GREEN, 116 tests; CLI rejects 1801/bogus.
+- Task 3: `867d1ea` — RED/GREEN, 127 tests; picker never run for real.
+- Task 4: `5d400de` — RED/GREEN, 129 tests; keybind migration in place.
+- Task 5: README (passive docs).
+
+## Pending
+
+- Hardware check: reinstall, picker appears from SUPER+SHIFT+K, No limit
+  mode layout, Esc + Enter exit, lid close exit.

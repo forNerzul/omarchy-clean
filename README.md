@@ -16,7 +16,7 @@ laptop:
 
 | Locked | Not touched |
 |---|---|
-| Keyboards (internal, USB, Bluetooth) | Lid switch |
+| Keyboards (internal, USB, Bluetooth) | Lid switch (and any device reporting it) |
 | Touchpads, touchscreens, mice | Audio and HDMI jacks |
 | Power, sleep, brightness and hotkey buttons | PC speaker |
 
@@ -50,7 +50,8 @@ missing.
 password prompt when launched from a keybind or the menu) and adds
 `SUPER + SHIFT + K` to `~/.config/hypr/bindings.lua` between
 `-- >>> omarchy-clean >>>` markers. `omarchy-clean-setup --remove` removes the
-keybind and leaves the agent enabled. Both refuse to edit `bindings.lua` if the
+keybind and leaves the agent enabled. Re-running it updates an older
+omarchy-clean keybind in place. Both refuse to edit `bindings.lua` if the
 markers are inconsistent.
 
 ## Uninstall
@@ -65,9 +66,14 @@ otherwise pacman reports the polkit policy file as already existing.
 
 ## Usage
 
-- `omarchy-clean [SECONDS]` (default 60, max 600)
-- `SUPER + SHIFT + K` (locks for 60 s)
-- "Clean Keyboard" in the app menu
+- `omarchy-clean` opens the Omarchy menu to choose 30 s, 1 min, 2 min, 5 min
+  or No limit (falls back to 60 s if `omarchy-menu-select` is unavailable).
+- `omarchy-clean SECONDS` (1 to 1800) or `omarchy-clean unlimited` skip the
+  menu.
+- `SUPER + SHIFT + K` and "Clean Keyboard" in the app menu open the picker.
+
+In **No limit** mode the lock lasts until you hold Esc + Enter for 3 seconds,
+with a safety release after 30 minutes (shown in small print on screen).
 
 ## Safety model
 
@@ -78,9 +84,12 @@ otherwise pacman reports the polkit policy file as already existing.
   if the helper dies.
 - If the overlay dies, the helper unlocks; if the overlay stops reading, the
   timer and Esc + Enter still work.
-- Hard maximum of 600 s.
+- Hard maximum of 1800 s, also for No limit mode.
 - Closing the lid (any suspend) ends the lock, so the normal lock screen is
-  usable on resume.
+  usable on resume. Devices reporting the lid switch are never grabbed, so
+  this exit always works.
+- Holding the power button for several seconds forces a hardware power-off
+  as a last resort (unsaved work is lost).
 
 ## Development
 
