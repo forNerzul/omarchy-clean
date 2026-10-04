@@ -50,6 +50,10 @@ class ApplyEventTests(unittest.TestCase):
         s = apply_event(OverlayState(phase="locked"), {"event": "unlocked", "reason": "combo"})
         self.assertEqual((s.phase, s.reason), ("unlocked", "combo"))
 
+    def test_unlocked_suspend(self):
+        s = apply_event(OverlayState(phase="locked"), {"event": "unlocked", "reason": "suspend"})
+        self.assertEqual((s.phase, s.reason), ("unlocked", "suspend"))
+
     def test_unknown_unchanged(self):
         s = OverlayState()
         self.assertEqual(apply_event(s, {"event": "zzz"}), s)

@@ -101,3 +101,20 @@ class LockTimer:
     def expired(self, now: float) -> bool:
         """True once the duration has elapsed."""
         return self.remaining(now) <= 0.0
+
+
+class SuspendDetector:
+    """Detects a system suspend: boottime advances while monotonic does not."""
+
+    def __init__(self, threshold: float = 2.0) -> None:
+        if threshold <= 0:
+            raise ValueError("threshold must be positive")
+        self._threshold = threshold
+        self._last: tuple[float, float] | None = None
+
+    def update(self, monotonic: float, boottime: float) -> bool:
+        """Feed a clock sample; True if a suspend happened since the last one."""
+        last, self._last = self._last, (monotonic, boottime)
+        if last is None:
+            return False
+        return (boottime - last[1]) - (monotonic - last[0]) > self._threshold

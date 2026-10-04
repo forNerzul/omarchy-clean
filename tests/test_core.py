@@ -10,6 +10,7 @@ from omarchy_clean.core import (
     DeviceSelection,
     HoldCombo,
     LockTimer,
+    SuspendDetector,
     select_devices,
 )
 
@@ -128,3 +129,29 @@ class LockTimerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SuspendDetectorTest(unittest.TestCase):
+    def test_first_sample_false(self) -> None:
+        self.assertFalse(SuspendDetector().update(10.0, 500.0))
+
+    def test_normal_ticks_false(self) -> None:
+        d = SuspendDetector()
+        for i in range(5):
+            self.assertFalse(d.update(10.0 + i, 500.0 + i))
+
+    def test_boottime_jump_true(self) -> None:
+        d = SuspendDetector()
+        d.update(10.0, 500.0)
+        self.assertTrue(d.update(10.1, 530.0))
+        self.assertFalse(d.update(10.2, 530.1))
+
+    def test_small_drift_false(self) -> None:
+        d = SuspendDetector()
+        d.update(10.0, 500.0)
+        self.assertFalse(d.update(11.0, 512.0 - 9.5))
+
+    def test_threshold_validation(self) -> None:
+        for bad in (0, -1.0):
+            with self.assertRaises(ValueError):
+                SuspendDetector(bad)

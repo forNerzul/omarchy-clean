@@ -16,6 +16,7 @@ from omarchy_clean.core import (
     MAX_LOCK_SECONDS,
     HoldCombo,
     LockTimer,
+    SuspendDetector,
     select_devices,
 )
 
@@ -86,9 +87,11 @@ def run_lock(
     tick_interval=0.1,
     max_duration=MAX_LOCK_SECONDS,
     stop=None,
+    boottime=None,
 ) -> str:
     """Grab devices, stream JSON status to out, and return the unlock reason."""
     combo = combo if combo is not None else HoldCombo()
+    suspend = SuspendDetector() if boottime is not None else None
     stop = stop if stop is not None else threading.Event()
     grabbed = []
     reason = "error"
@@ -123,6 +126,9 @@ def run_lock(
                     reason = "error"
                     break
                 now = clock()
+                if suspend is not None and suspend.update(now, boottime()):
+                    reason = "suspend"
+                    break
                 if combo.triggered(now):
                     reason = "combo"
                     break
@@ -199,6 +205,7 @@ def main(argv=None) -> int:
             args.seconds,
             out,
             clock=time.monotonic,
+            boottime=lambda: time.clock_gettime(time.CLOCK_BOOTTIME),
             wait_ready=wait_ready,
             stop=stop,
         )

@@ -123,6 +123,28 @@ class RunLockTests(unittest.TestCase):
         self.assertEqual(env.lines()[-1], {"event": "unlocked", "reason": "combo"})
         self.assertTrue(all(d.ungrab_calls == 1 for d in env.devices))
 
+    def test_suspend_ends_lock(self):
+        env = Env()
+        offset = [0.0]
+        calls = [0]
+
+        def jump():
+            calls[0] += 1
+            if calls[0] == 5:
+                offset[0] += 60.0
+
+        env.on_wait = jump
+        self.assertEqual(
+            env.run(300.0, boottime=lambda: env.clock.t + offset[0]), "suspend"
+        )
+        self.assertLess(env.clock.t, 100.0 + 10)
+        self.assertTrue(all(d.ungrab_calls == 1 and not d.grabbed for d in env.devices))
+        self.assertEqual(env.lines()[-1], {"event": "unlocked", "reason": "suspend"})
+
+    def test_boottime_without_jump_times_out(self):
+        env = Env()
+        self.assertEqual(env.run(1.0, boottime=lambda: env.clock.t + 5.0), "timer")
+
     def test_waits_for_active_keys_to_clear(self):
         env = Env()
         env.devices[0].keys_until = 100.3

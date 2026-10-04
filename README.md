@@ -50,6 +50,8 @@ The lock ends when the timer runs out, or early by holding **Esc + Enter** for
   if the helper dies.
 - If the overlay dies, the helper unlocks.
 - Hard maximum of 600 s.
+- Closing the lid (any suspend) ends the lock, so the normal lock screen is
+  usable on resume.
 - Power, brightness and sleep keys are grabbed too.
 
 ## Development
