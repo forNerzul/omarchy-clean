@@ -12,6 +12,8 @@ KEY_Z = 44
 EV_KEY = 1
 EV_REL = 2
 EV_ABS = 3
+EV_SW = 5
+SW_LID = 0
 REL_X = 0
 REL_Y = 1
 ABS_X = 0
@@ -51,7 +53,14 @@ Capabilities = Mapping[int, Sequence[int]]
 
 
 def classify_device(capabilities: Capabilities) -> str | None:
-    """Classify an input device by capabilities; None if it emits no keys/buttons."""
+    """Classify an input device by capabilities; None if it must not be locked.
+
+    Devices without keys/buttons are skipped, and so is any device reporting
+    the lid switch: grabbing it would swallow lid events, and closing the lid
+    (suspend) is the emergency way out of a lock.
+    """
+    if SW_LID in capabilities.get(EV_SW, ()):
+        return None
     keys = set(capabilities.get(EV_KEY, ()))
     if not keys:
         return None

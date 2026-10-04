@@ -153,6 +153,18 @@ FIXTURES: dict[str, dict[int, list[int]]] = {
 
 
 class ClassifyDeviceTest(unittest.TestCase):
+    def test_device_with_lid_switch_is_never_locked(self) -> None:
+        # e.g. a hotkey device that also reports SW_LID: grabbing it would
+        # swallow lid events, the emergency exit via suspend.
+        hotkeys_with_lid = {1: [113, 114, 115, 224, 225], 5: [0, 1]}
+        keyboard_with_lid = {1: [1, 28] + list(range(16, 51)), 5: [0]}
+        self.assertIsNone(classify_device(hotkeys_with_lid))
+        self.assertIsNone(classify_device(keyboard_with_lid))
+
+    def test_other_switches_do_not_prevent_locking(self) -> None:
+        tablet_mode_buttons = {1: [116], 5: [1]}
+        self.assertEqual(classify_device(tablet_mode_buttons), "buttons")
+
     def test_macbook_fixtures(self) -> None:
         expected = {
             "Lid Switch": None,
