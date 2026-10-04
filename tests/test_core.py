@@ -7,14 +7,16 @@ from omarchy_clean.core import (
     KEY_ENTER,
     KEY_ESC,
     MAX_LOCK_SECONDS,
+    KEY_A,
     DeviceSelection,
     HoldCombo,
+    LockTargets,
     LockTimer,
     SuspendDetector,
+    classify_device,
     select_devices,
+    select_lock_targets,
 )
-
-KEY_A = 30
 
 
 class SelectDevicesTest(unittest.TestCase):
@@ -129,6 +131,124 @@ class LockTimerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+APPLE_KEYS = [1, *range(2, 59), 96, 97, 100, 102, 103, 105, 106, 107, 108, 125, 126]
+FIXTURES: dict[str, dict[int, list[int]]] = {
+    "Lid Switch": {5: [0]},
+    "Power Button": {1: [116]},
+    "Sleep Button": {1: [142]},
+    "Video Bus": {1: [224, 225, 227, 241, 242, 243, 244]},
+    "HDA Intel PCH Headphone": {5: [2]},
+    "PC Speaker": {18: [1, 2]},
+    "Apple Inc. Apple Internal Keyboard / Trackpad": {
+        0: [0, 1, 4, 17],
+        1: APPLE_KEYS,
+        4: [4],
+        17: [0, 1, 2],
+    },
+    "bcm5974": {
+        1: [272, 325, 330, 333, 334, 335],
+        3: [0, 1, 24, 28, 47, 48, 49, 52, 53, 54, 57],
+    },
+}
+
+
+class ClassifyDeviceTest(unittest.TestCase):
+    def test_macbook_fixtures(self) -> None:
+        expected = {
+            "Lid Switch": None,
+            "HDA Intel PCH Headphone": None,
+            "PC Speaker": None,
+            "Power Button": "buttons",
+            "Sleep Button": "buttons",
+            "Video Bus": "buttons",
+            "Apple Inc. Apple Internal Keyboard / Trackpad": "keyboard",
+            "bcm5974": "touch",
+        }
+        for name, want in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(classify_device(FIXTURES[name]), want)
+
+    def test_other_devices(self) -> None:
+        mouse = {1: [272, 273, 274], 2: [0, 1, 8]}
+        touchscreen = {1: [330], 3: [0, 1, 47, 53, 54, 57]}
+        at_kbd = {1: [1, 28, *range(30, 45)]}
+        keypad = {1: [1, 28, *range(2, 12)]}
+        self.assertEqual(classify_device(mouse), "pointer")
+        self.assertEqual(classify_device(touchscreen), "touch")
+        self.assertEqual(classify_device(at_kbd), "keyboard")
+        self.assertEqual(classify_device(keypad), "buttons")
+
+    def test_empty_or_missing_key_caps(self) -> None:
+        self.assertIsNone(classify_device({1: []}))
+        self.assertIsNone(classify_device({}))
+        self.assertIsNone(classify_device({2: [0, 1]}))
+
+    def test_touch_needs_button_and_axes(self) -> None:
+        self.assertEqual(classify_device({1: [330], 3: [0]}), "buttons")
+        self.assertEqual(classify_device({1: [272], 3: [0, 1]}), "buttons")
+        self.assertEqual(classify_device({1: [325], 3: [0, 1]}), "touch")
+        self.assertEqual(classify_device({1: [330], 3: [53, 54]}), "touch")
+
+
+class SelectLockTargetsTest(unittest.TestCase):
+    ORDER = [
+        "Lid Switch",
+        "Power Button",
+        "Sleep Button",
+        "Video Bus",
+        "HDA Intel PCH Headphone",
+        "PC Speaker",
+        "Apple Inc. Apple Internal Keyboard / Trackpad",
+        "bcm5974",
+    ]
+
+    def devices(self, skip: tuple[str, ...] = ()) -> list[tuple[str, str, dict]]:
+        return [
+            (f"/dev/input/event{i}", n, FIXTURES[n])
+            for i, n in enumerate(self.ORDER)
+            if n not in skip
+        ]
+
+    def test_macbook_selection(self) -> None:
+        t = select_lock_targets(self.devices())
+        self.assertIsInstance(t, LockTargets)
+        self.assertEqual(
+            t.names,
+            (
+                "Power Button",
+                "Sleep Button",
+                "Video Bus",
+                "Apple Inc. Apple Internal Keyboard / Trackpad",
+                "bcm5974",
+            ),
+        )
+        self.assertEqual(
+            t.paths,
+            tuple(f"/dev/input/event{i}" for i in (1, 2, 3, 6, 7)),
+        )
+        self.assertEqual(
+            t.categories, ("buttons", "buttons", "buttons", "keyboard", "touch")
+        )
+        self.assertTrue(t.has_keyboard)
+
+    def test_no_keyboard(self) -> None:
+        t = select_lock_targets(
+            self.devices(skip=("Apple Inc. Apple Internal Keyboard / Trackpad",))
+        )
+        self.assertFalse(t.has_keyboard)
+        self.assertEqual(len(t.paths), 4)
+
+    def test_duplicate_path_skipped(self) -> None:
+        devs = self.devices()
+        devs.append(("/dev/input/event1", "Power Button", FIXTURES["Power Button"]))
+        self.assertEqual(len(select_lock_targets(devs).paths), 5)
+
+    def test_empty(self) -> None:
+        t = select_lock_targets([])
+        self.assertEqual((t.paths, t.names, t.categories), ((), (), ()))
+        self.assertFalse(t.has_keyboard)
 
 
 class SuspendDetectorTest(unittest.TestCase):

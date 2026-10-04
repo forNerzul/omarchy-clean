@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 KEY_ESC = 1
 KEY_ENTER = 28
+KEY_A = 30
+KEY_Z = 44
+EV_KEY = 1
+EV_REL = 2
+EV_ABS = 3
+REL_X = 0
+REL_Y = 1
+ABS_X = 0
+ABS_Y = 1
+ABS_MT_POSITION_X = 53
+ABS_MT_POSITION_Y = 54
+BTN_LEFT = 272
+BTN_TOOL_FINGER = 325
+BTN_TOUCH = 330
 DEFAULT_UNLOCK_KEYS: frozenset[int] = frozenset({KEY_ESC, KEY_ENTER})
 DEFAULT_HOLD_SECONDS = 3.0
 MAX_LOCK_SECONDS = 600
@@ -38,6 +52,60 @@ def select_devices(
     found = {n for _, n in devices}
     missing = tuple(n for n in wanted_names if n not in found)
     return DeviceSelection(paths=paths, missing=missing)
+
+
+Capabilities = Mapping[int, Sequence[int]]
+
+
+def classify_device(capabilities: Capabilities) -> str | None:
+    """Classify an input device by capabilities; None if it emits no keys/buttons."""
+    keys = set(capabilities.get(EV_KEY, ()))
+    if not keys:
+        return None
+    if {KEY_ESC, KEY_ENTER, KEY_A, KEY_Z} <= keys:
+        return "keyboard"
+    abs_axes = set(capabilities.get(EV_ABS, ()))
+    has_axes = {ABS_X, ABS_Y} <= abs_axes or {
+        ABS_MT_POSITION_X,
+        ABS_MT_POSITION_Y,
+    } <= abs_axes
+    if has_axes and keys & {BTN_TOUCH, BTN_TOOL_FINGER}:
+        return "touch"
+    if {REL_X, REL_Y} <= set(capabilities.get(EV_REL, ())):
+        return "pointer"
+    return "buttons"
+
+
+@dataclass(frozen=True)
+class LockTargets:
+    """Devices to lock, with their names and categories in matching order."""
+
+    paths: tuple[str, ...]
+    names: tuple[str, ...]
+    categories: tuple[str, ...]
+
+    @property
+    def has_keyboard(self) -> bool:
+        return "keyboard" in self.categories
+
+
+def select_lock_targets(
+    devices: Iterable[tuple[str, str, Capabilities]],
+) -> LockTargets:
+    """Select every device that can produce key/button events, in input order."""
+    seen: set[str] = set()
+    paths: list[str] = []
+    names: list[str] = []
+    categories: list[str] = []
+    for path, name, caps in devices:
+        category = classify_device(caps)
+        if category is None or path in seen:
+            continue
+        seen.add(path)
+        paths.append(path)
+        names.append(name)
+        categories.append(category)
+    return LockTargets(tuple(paths), tuple(names), tuple(categories))
 
 
 class HoldCombo:
