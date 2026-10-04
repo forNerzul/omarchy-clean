@@ -46,7 +46,20 @@ distributable as an Arch (AUR) package.
   layout inspected (relative symlink, policy exec.path under /usr).
 - Task 5: `cb14a88` — RED/GREEN, 107 tests; local `makepkg -f` built
   omarchy-clean-0.1.0-1-any with check() passing; package not installed.
-- Task 6: README rewrite (passive docs, `make check` still green).
+- Task 6: `099638a` — README rewrite (passive docs, `make check` green).
+- Review `review-254a4b9b71c2d45c` (914e0cc..099638a): one CRITICAL finding
+  (stray `install` copy) corrected in `a964909`, validator approved,
+  acknowledged. Stray `uninstall` copy removed separately.
+
+## Follow-ups from review (advisory)
+
+- Lid switch exposed on a device that also has keys (some laptops) gets
+  grabbed: lid events and suspend detection could be lost. Exclude EV_SW
+  lid/tablet switches or skip such devices.
+- Devices hot-plugged during a lock (e.g. Bluetooth keyboard) are not locked.
+- One unreadable device aborts the whole lock instead of being skipped.
+- `paths.render_policy` is unused (Makefile renders with sed).
+- Manual install and AUR package write the same polkit file (documented).
 
 ## Pending
 
