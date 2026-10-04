@@ -83,6 +83,39 @@ class InstallScriptTest(unittest.TestCase):
         self.assertEqual(self.bindings.read_bytes(), ORIGINAL.encode())
         self.assertFalse((self.apps / "omarchy-clean.desktop").exists())
 
+    def _assert_refused(self, script, content):
+        self.bindings.write_text(content)
+        desktop = self.apps / "omarchy-clean.desktop"
+        self.apps.mkdir(parents=True)
+        desktop.write_text("sentinel")
+        result = self.run_script(script, "--user-only")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("bindings.lua", result.stderr)
+        self.assertEqual(self.bindings.read_bytes(), content.encode())
+        self.assertEqual(desktop.read_text(), "sentinel")
+        self.assertNotIn("hyprctl", self.calls())
+
+    def _bad_states(self):
+        block = f"{BEGIN}\no.bind()\n{END}\n"
+        return {
+            "start_without_end": f"{ORIGINAL}{BEGIN}\no.bind()\ntrailing = 1\n",
+            "end_without_start": f"{ORIGINAL}{END}\n",
+            "end_before_start": f"{ORIGINAL}{END}\n{BEGIN}\n",
+            "two_blocks": f"{ORIGINAL}{block}{block}",
+        }
+
+    def test_install_refuses_invalid_markers(self):
+        for name, content in self._bad_states().items():
+            with self.subTest(name):
+                self.setUp()
+                self._assert_refused("install.sh", content)
+
+    def test_uninstall_refuses_invalid_markers(self):
+        for name, content in self._bad_states().items():
+            with self.subTest(name):
+                self.setUp()
+                self._assert_refused("uninstall.sh", content)
+
     def test_user_only_never_calls_sudo(self):
         self.run_script("install.sh", "--user-only")
         self.run_script("uninstall.sh", "--user-only")

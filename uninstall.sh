@@ -22,7 +22,24 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
+validate_markers() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    local state
+    state="$(awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+        $0 == b { nb++; if (ne > 0) bad = 1 }
+        $0 == e { ne++; if (nb == 0) bad = 1 }
+        END { print (nb == 0 && ne == 0) || (!bad && nb == 1 && ne == 1) ? "ok" : "bad" }
+    ' "$file")"
+    if [ "$state" != ok ]; then
+        echo "error: $file has an inconsistent omarchy-clean block (markers '$BEGIN_MARK' / '$END_MARK')." >&2
+        echo "Fix or remove the block manually, then re-run. The file was not modified." >&2
+        exit 1
+    fi
+}
+
 file="$HYPR_CONFIG_DIR/bindings.lua"
+validate_markers "$file"
 if [ -f "$file" ] && grep -qF -- "$BEGIN_MARK" "$file"; then
     tmp="$(mktemp)"
     awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
