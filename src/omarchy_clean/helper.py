@@ -90,7 +90,10 @@ def run_lock(
     stop=None,
     boottime=None,
 ) -> str:
-    """Grab devices, stream JSON status to out, and return the unlock reason."""
+    """Grab devices, stream JSON status to out, and return the unlock reason.
+
+    duration=None means no deadline: only the other exits end the lock.
+    """
     combo = combo if combo is not None else HoldCombo()
     suspend = SuspendDetector() if boottime is not None else None
     stop = stop if stop is not None else threading.Event()
@@ -98,7 +101,8 @@ def run_lock(
     reason = "error"
     try:
         try:
-            timer = LockTimer(duration, clock(), max_duration)
+            if duration is not None:
+                LockTimer(duration, clock(), max_duration)  # validate early
             _wait_keys_clear(devices, clock, wait_ready)
             try:
                 for dev in devices:
@@ -107,7 +111,7 @@ def run_lock(
             except OSError as exc:
                 _emit(out, event="error", message=f"grab failed: {exc}")
                 return _finish(out, "error")
-            timer = LockTimer(duration, clock(), max_duration)
+            timer = LockTimer(duration, clock(), max_duration) if duration is not None else None
             _emit(out, event="locked", devices=[d.name for d in devices], duration=duration)
             by_fd = {d.fd: d for d in devices}
             while True:
@@ -133,7 +137,7 @@ def run_lock(
                 if combo.triggered(now):
                     reason = "combo"
                     break
-                if timer.expired(now):
+                if timer is not None and timer.expired(now):
                     reason = "timer"
                     break
                 if stop.is_set():
@@ -142,7 +146,7 @@ def run_lock(
                 _emit(
                     out,
                     event="tick",
-                    remaining=round(timer.remaining(now), 2),
+                    remaining=None if timer is None else round(timer.remaining(now), 2),
                     combo=round(combo.progress(now), 2),
                 )
             return _finish(out, reason)
@@ -161,9 +165,31 @@ def _finish(out, reason: str) -> str:
     return reason
 
 
+def _seconds_arg(text: str):
+    """Parse SECONDS: None for 'unlimited', else a number in (0, MAX_LOCK_SECONDS]."""
+    if text.strip().lower() == "unlimited":
+        return None
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"invalid value {text!r}: use 1..{MAX_LOCK_SECONDS} or 'unlimited'"
+        ) from None
+    if not 0 < value <= MAX_LOCK_SECONDS:
+        raise argparse.ArgumentTypeError(
+            f"SECONDS must be > 0 and <= {MAX_LOCK_SECONDS}"
+        )
+    return value
+
+
 def _parse_args(argv):
     parser = argparse.ArgumentParser(prog="omarchy-clean-helper")
-    parser.add_argument("seconds", type=float)
+    parser.add_argument(
+        "seconds",
+        type=_seconds_arg,
+        metavar="SECONDS",
+        help=f"1..{MAX_LOCK_SECONDS}, or 'unlimited' for no time limit",
+    )
     parser.add_argument(
         "--device",
         action="append",
@@ -172,10 +198,7 @@ def _parse_args(argv):
         help="lock only the device with this exact name (repeatable); "
         "overrides auto-detection",
     )
-    args = parser.parse_args(argv)
-    if not 0 < args.seconds <= MAX_LOCK_SECONDS:
-        parser.error(f"SECONDS must be > 0 and <= {MAX_LOCK_SECONDS}")
-    return args
+    return parser.parse_args(argv)
 
 
 def choose_targets(devices, requested_names):

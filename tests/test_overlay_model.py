@@ -86,8 +86,8 @@ class HelperExitTests(unittest.TestCase):
 
 class ParseDurationArgTests(unittest.TestCase):
     def test_unlimited(self):
-        self.assertEqual(parse_duration_arg("unlimited"), (1800, True))
-        self.assertEqual(parse_duration_arg("UNLIMITED"), (1800, True))
+        self.assertEqual(parse_duration_arg("unlimited"), (None, True))
+        self.assertEqual(parse_duration_arg("UNLIMITED"), (None, True))
 
     def test_integers(self):
         self.assertEqual(parse_duration_arg("60"), (60, False))
@@ -114,9 +114,21 @@ class LockedLabelsTests(unittest.TestCase):
             (
                 "No time limit",
                 "Hold Esc + Enter for 3 seconds to unlock",
-                "Releases automatically in 1:05",
+                "or close the lid",
             ),
         )
+        self.assertFalse(any(c.isdigit() for c in locked_labels(s)[0] + locked_labels(s)[2]))
+        self.assertFalse(any(c.isdigit() for c in locked_labels(s)[1].replace("3 seconds", "")))
+
+    def test_null_remaining_does_not_crash(self):
+        s = OverlayState(unlimited=True)
+        s = apply_event(s, {"event": "locked", "duration": None, "devices": ["k"]})
+        self.assertEqual(s.phase, "locked")
+        s = apply_event(s, {"event": "tick", "remaining": None, "combo": 0.5})
+        self.assertEqual(s.phase, "locked")
+        self.assertEqual(s.combo, 0.5)
+        self.assertEqual(s.remaining, 0.0)
+        self.assertEqual(locked_labels(s)[0], "No time limit")
 
     def test_unlimited_survives_events(self):
         s = OverlayState(unlimited=True)

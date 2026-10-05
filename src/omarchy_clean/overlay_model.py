@@ -33,10 +33,13 @@ UNLIMITED_HEADLINE = "No time limit"
 UNLOCK_HINT = "Hold Esc + Enter for 3 seconds to unlock"
 
 
-def parse_duration_arg(text: str) -> tuple[int, bool]:
-    """Parse the CLI duration into (seconds, unlimited)."""
+UNLIMITED_FOOTNOTE = "or close the lid"
+
+
+def parse_duration_arg(text: str) -> tuple[int | None, bool]:
+    """Parse the CLI duration into (seconds, unlimited); seconds is None if unlimited."""
     if text.strip().lower() == "unlimited":
-        return MAX_LOCK_SECONDS, True
+        return None, True
     try:
         n = int(text)
     except ValueError:
@@ -61,11 +64,12 @@ class OverlayState:
 def apply_event(state: OverlayState, event: dict) -> OverlayState:
     kind = event.get("event")
     if kind == "locked":
-        return replace(state, phase="locked", remaining=event.get("duration", 0.0))
+        return replace(state, phase="locked", remaining=event.get("duration") or 0.0)
     if kind == "tick" and state.phase == "locked":
+        remaining = event.get("remaining")
         return replace(
             state,
-            remaining=event.get("remaining", state.remaining),
+            remaining=state.remaining if remaining is None else remaining,
             combo=event.get("combo", state.combo),
         )
     if kind == "error":
@@ -90,6 +94,6 @@ def locked_labels(state: OverlayState) -> tuple[str, str, str | None]:
         return (
             UNLIMITED_HEADLINE,
             UNLOCK_HINT,
-            f"Releases automatically in {format_remaining(state.remaining)}",
+            UNLIMITED_FOOTNOTE,
         )
     return format_remaining(state.remaining), UNLOCK_HINT, None

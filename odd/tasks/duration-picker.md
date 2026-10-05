@@ -10,9 +10,8 @@ Let the user choose the lock duration when the app opens, including a
   quietly. If the command is missing, fall back to 60 s.
 - `omarchy-clean` without arguments opens the picker; `omarchy-clean SECONDS`
   locks directly. The keybind and desktop entry use the picker.
-- "No limit" = until Esc + Enter, with a hidden safety cap of 30 minutes
-  (the overlay says so in small print). Global hard maximum raised from
-  600 s to 1800 s.
+- "No limit" = until Esc + Enter (or lid close); no timer at all (revised
+  after user feedback). Timed modes keep a hard maximum of 1800 s.
 - The lid switch must never be grabbed (it is the emergency exit via
   suspend): devices reporting `SW_LID` are skipped even if they have keys.
 
@@ -31,6 +30,14 @@ Let the user choose the lock duration when the app opens, including a
 - [x] 4. Keybind and desktop entry use the picker; `omarchy-clean-setup`
       updates an existing `omarchy-clean 60` block in place.
 - [x] 5. README.
+
+- [ ] 6. True no-limit mode (user feedback: the visible 30 min countdown felt
+      deceptive): helper runs without any deadline when started with
+      `unlimited`; overlay shows "No time limit", the Esc + Enter hint and
+      "or close the lid", no numbers. Exits: Esc + Enter, lid close
+      (suspend), device loss, overlay death, hardware power-off. The 1800 s
+      cap stays for timed modes only.
+- [ ] 7. README: describe the no-limit exits honestly.
 
 ## Evidence
 

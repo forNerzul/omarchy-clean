@@ -87,7 +87,8 @@ class CleanApp(Gtk.Application):
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
-        argv = [self.args.helper, str(self.args.duration[0])]
+        seconds, unlimited = self.args.duration
+        argv = [self.args.helper, "unlimited" if unlimited else str(seconds)]
         if not self.args.no_pkexec:
             argv.insert(0, "pkexec")
         try:

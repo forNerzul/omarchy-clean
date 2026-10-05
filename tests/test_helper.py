@@ -116,6 +116,47 @@ class RunLockTests(unittest.TestCase):
         self.assertEqual(lines[-1], {"event": "unlocked", "reason": "timer"})
         self.assertTrue(env.out.getvalue().endswith("\n"))
 
+    def test_unlimited_never_times_out_then_combo(self):
+        env = Env()
+        calls = [0]
+
+        def on_wait():
+            calls[0] += 1
+            if calls[0] == 4:
+                env.devices[0].events = [key(ESC, 1), key(ENTER, 1)]
+        env.on_wait = on_wait
+        self.assertEqual(env.run(None, tick_interval=1000.0), "combo")
+        self.assertGreater(env.clock.t, 100.0 + 1800)
+        lines = env.lines()
+        self.assertEqual(lines[0], {"event": "locked", "devices": ["d0", "d1"], "duration": None})
+        ticks = lines[1:-1]
+        self.assertGreaterEqual(len(ticks), 3)
+        for t in ticks:
+            self.assertEqual(t["event"], "tick")
+            self.assertIsNone(t["remaining"])
+        self.assertEqual(lines[-1], {"event": "unlocked", "reason": "combo"})
+        self.assertTrue(all(d.ungrab_calls == 1 for d in env.devices))
+
+    def test_unlimited_suspend_ends_lock(self):
+        env = Env()
+        offset = [0.0]
+        calls = [0]
+
+        def jump():
+            calls[0] += 1
+            if calls[0] == 5:
+                offset[0] += 5000.0
+        env.on_wait = jump
+        self.assertEqual(
+            env.run(None, tick_interval=1000.0,
+                    boottime=lambda: env.clock.t + offset[0]),
+            "suspend",
+        )
+
+    def test_unlimited_output_closed(self):
+        env = Env()
+        self.assertEqual(env.run(None, out=BrokenOut()), "output-closed")
+
     def test_combo_ends_early(self):
         env = Env()
         env.devices[0].events = [key(ESC, 1), key(ENTER, 1)]
@@ -370,6 +411,16 @@ class MainTests(unittest.TestCase):
 
     def test_accepts_max(self):
         self.assertEqual(helper._parse_args(["1800"]).seconds, 1800)
+
+    def test_accepts_unlimited(self):
+        for text in ("unlimited", "UNLIMITED", "Unlimited"):
+            with self.subTest(text=text):
+                self.assertIsNone(helper._parse_args([text]).seconds)
+
+    def test_rejects_forever(self):
+        code, err = self._main(["forever"])
+        self.assertEqual(code, 2)
+        self.assertTrue(err)
 
     def test_rejects_negative(self):
         code, _ = self._main(["-5"])

@@ -1,7 +1,6 @@
 import subprocess
 import unittest
 
-from omarchy_clean.core import MAX_LOCK_SECONDS
 from omarchy_clean.overlay_model import parse_duration_arg
 from omarchy_clean.picker import (
     FALLBACK_DURATION,
@@ -83,7 +82,7 @@ class ResolveDurationTests(unittest.TestCase):
 
     def test_picker_unlimited(self):
         self.assertEqual(resolve_duration(None, lambda: "unlimited"),
-                         (MAX_LOCK_SECONDS, True))
+                         (None, True))
 
     def test_picker_cancel_returns_none(self):
         self.assertIsNone(resolve_duration(None, lambda: None))
