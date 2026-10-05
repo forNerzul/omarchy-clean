@@ -9,6 +9,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from omarchy_clean import __version__, errorlog
 from omarchy_clean.paths import default_helper_path
@@ -79,6 +80,30 @@ def run_checks(*, which=shutil.which, run=subprocess.run,
     return results
 
 
+def _plural(count: int, unit: str) -> str:
+    return f"{count} {unit}{'' if count == 1 else 's'} ago"
+
+
+def describe_age(timestamp: str, now: datetime) -> str | None:
+    """Plain-English age of an ISO 8601 timestamp, or None if it cannot be told."""
+    try:
+        then = datetime.fromisoformat(timestamp)
+    except (TypeError, ValueError):
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    seconds = (now - then).total_seconds()
+    if seconds < -60:
+        return None
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return _plural(int(seconds // 60), "minute")
+    if seconds < 86400:
+        return _plural(int(seconds // 3600), "hour")
+    return _plural(int(seconds // 86400), "day")
+
+
 def explain_error(record: dict) -> str:
     reason = record.get("reason")
     if reason == "shell-unresponsive":
@@ -128,8 +153,10 @@ def scrub_record(record: dict | None, environ: Mapping[str, str]) -> dict | None
 
 def build_report(checks: list[Check], last_error: dict | None, *,
                  app_version: str, omarchy_version: str,
-                 environ: Mapping[str, str] | None = None) -> str:
+                 environ: Mapping[str, str] | None = None,
+                 now: datetime | None = None) -> str:
     environ = os.environ if environ is None else environ
+    now = datetime.now(timezone.utc) if now is None else now
     last_error = scrub_record(last_error, environ)
     lines = [
         "### omarchy-clean report",
@@ -148,6 +175,10 @@ def build_report(checks: list[Check], last_error: dict | None, *,
         for label, key in (("Time", "timestamp"), ("Reason", "reason"),
                            ("Detail", "detail"), ("Exit code", "returncode")):
             lines.append(f"- {label}: {last_error.get(key)}")
+            if key == "timestamp":
+                age = describe_age(last_error.get(key), now)
+                if age:
+                    lines.append(f"- When: {age}")
         lines += ["- Error output:", "```", str(last_error.get("stderr") or ""), "```"]
     return "\n".join(lines)
 
@@ -156,8 +187,10 @@ def main(argv=None, *, out=sys.stdout, which=shutil.which, run=subprocess.run,
          environ: Mapping[str, str] | None = None,
          exists: Callable[[str], bool] = os.path.exists,
          importer: Callable[[str], object] = importlib.import_module,
-         read_last_error: Callable[[], dict | None] | None = None) -> int:
+         read_last_error: Callable[[], dict | None] | None = None,
+         now: datetime | None = None) -> int:
     environ = os.environ if environ is None else environ
+    now = datetime.now(timezone.utc) if now is None else now
     if read_last_error is None:
         def read_last_error():
             return errorlog.read_last_error(environ)
@@ -173,10 +206,16 @@ def main(argv=None, *, out=sys.stdout, which=shutil.which, run=subprocess.run,
     for check in checks:
         say(_format_check(check))
     say()
-    say("Last error")
+    all_ok = all(c.ok for c in checks)
+    if all_ok and last_error is None:
+        say("Everything looks fine. Nothing to report.")
+        return 0
     if last_error is None:
+        say("Last error")
         say("No error recorded since install.")
     else:
+        age = describe_age(last_error.get("timestamp"), now)
+        say(f"Last error ({age})" if age else "Last error")
         say(explain_error(last_error))
     say()
     say("To report it:")
@@ -184,7 +223,7 @@ def main(argv=None, *, out=sys.stdout, which=shutil.which, run=subprocess.run,
     say(BEGIN_MARKER)
     say(build_report(checks, last_error, app_version=__version__,
                      omarchy_version=errorlog.omarchy_version(run),
-                     environ=environ))
+                     environ=environ, now=now))
     say(END_MARKER)
     say(PRIVACY_NOTE)
-    return 0 if all(c.ok for c in checks) else 1
+    return 0 if all_ok else 1

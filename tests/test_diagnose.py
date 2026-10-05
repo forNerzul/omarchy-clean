@@ -2,6 +2,7 @@ import io
 import os
 import subprocess
 import unittest
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from omarchy_clean import diagnose, paths
@@ -48,6 +49,45 @@ RECORD = {
     "omarchy_version": "4.0",
     "omarchy_clean_version": "0.3",
 }
+
+
+NOW = datetime(2026, 10, 4, 12, 30, 5, tzinfo=timezone.utc)
+
+
+class DescribeAgeTest(unittest.TestCase):
+    def age(self, delta=None, timestamp=None):
+        if timestamp is None:
+            timestamp = (NOW - delta).isoformat()
+        return diagnose.describe_age(timestamp, NOW)
+
+    def test_table(self):
+        table = [
+            (timedelta(seconds=0), "just now"),
+            (timedelta(seconds=59), "just now"),
+            (timedelta(seconds=60), "1 minute ago"),
+            (timedelta(minutes=5), "5 minutes ago"),
+            (timedelta(minutes=59, seconds=59), "59 minutes ago"),
+            (timedelta(hours=1), "1 hour ago"),
+            (timedelta(hours=3, minutes=40), "3 hours ago"),
+            (timedelta(hours=23, minutes=59), "23 hours ago"),
+            (timedelta(hours=24), "1 day ago"),
+            (timedelta(days=4, hours=2), "4 days ago"),
+            (timedelta(seconds=-30), "just now"),
+        ]
+        for delta, expected in table:
+            self.assertEqual(self.age(delta), expected, delta)
+
+    def test_none_for_bad_input(self):
+        for bad in (None, "", "garbage", "2026-13-99"):
+            self.assertIsNone(diagnose.describe_age(bad, NOW), bad)
+        self.assertIsNone(self.age(timedelta(seconds=-61)))
+
+    def test_naive_is_utc(self):
+        self.assertEqual(self.age(timestamp="2026-10-04T09:30:05"), "3 hours ago")
+
+    def test_other_offset(self):
+        self.assertEqual(self.age(timestamp="2026-10-04T07:30:05-04:00"),
+                         "1 hour ago")
 
 
 class RunChecksTest(unittest.TestCase):
@@ -202,6 +242,15 @@ class BuildReportTest(unittest.TestCase):
         self.assertIn("cannot open ~/x", text)
         self.assertIn("in ~/y", text)
 
+    def test_when_line_with_age(self):
+        text = diagnose.build_report([], RECORD, app_version="0.3",
+                                     omarchy_version="4.0", now=NOW)
+        self.assertIn("- Time: 2026-10-04T12:30:05+00:00\n- When: just now", text)
+
+    def test_no_when_line_without_age(self):
+        text = self.report(dict(RECORD, timestamp="garbage"))
+        self.assertNotIn("When:", text)
+
     def test_no_error(self):
         text = self.report(None)
         self.assertIn("No error recorded.", text)
@@ -213,26 +262,53 @@ class MainTest(unittest.TestCase):
         out = io.StringIO()
         kw = dict(which=make_which(), run=ok_run, environ={},
                   exists=make_exists(), importer=ok_import,
-                  read_last_error=lambda: last_error)
+                  read_last_error=lambda: last_error, now=NOW)
         kw.update(overrides)
         code = diagnose.main([], out=out, **kw)
         return code, out.getvalue()
 
-    def test_all_ok_exit_zero(self):
+    def test_all_clear_prints_no_report(self):
         code, text = self.run_main()
         self.assertEqual(code, 0)
+        self.assertIn("omarchy-clean diagnostics", text)
+        self.assertIn("- [ok] pkexec", text)
+        self.assertIn("Everything looks fine. Nothing to report.", text)
+        for absent in ("To report it", diagnose.ISSUES_URL, "BEGIN", "END",
+                       "Home folder paths", "Last error"):
+            self.assertNotIn(absent, text)
+
+    def test_failed_check_without_error_shows_report(self):
+        code, text = self.run_main(which=make_which(ALL_BINS - {"pkexec"}))
+        self.assertEqual(code, 1)
+        self.assertNotIn("Everything looks fine", text)
         self.assertIn("No error recorded since install.", text)
-        self.assertIn(diagnose.ISSUES_URL, text)
-        self.assertIn("BEGIN", text)
-        self.assertIn("END", text)
-        self.assertIn("Home folder paths are replaced with ~. Review the report "
-                      "before sharing; omarchy-clean never sends anything on its own.",
-                      text)
+        self.assertIn("To report it:", text)
+        self.assertIn(diagnose.BEGIN_MARKER, text)
+        self.assertIn(diagnose.END_MARKER, text)
+        self.assertIn(diagnose.PRIVACY_NOTE, text)
+
+    def test_error_with_all_ok_shows_report_and_age(self):
+        code, text = self.run_main(
+            last_error=dict(RECORD, timestamp=(NOW - timedelta(days=3)).isoformat()),
+            now=NOW)
+        self.assertEqual(code, 0)
+        self.assertNotIn("Everything looks fine", text)
+        self.assertIn("Last error (3 days ago)", text)
+        self.assertIn("- When: 3 days ago", text)
+        self.assertIn("To report it:", text)
+        self.assertIn(diagnose.BEGIN_MARKER, text)
+        self.assertIn(diagnose.PRIVACY_NOTE, text)
         self.assertNotIn("no personal data", text)
+
+    def test_unknown_age_heading_is_plain(self):
+        _, text = self.run_main(last_error=dict(RECORD, timestamp="garbage"), now=NOW)
+        self.assertIn("\nLast error\n", text)
+        self.assertNotIn("Last error (", text)
 
     def test_old_record_scrubbed_in_explanation_and_report(self):
         old = dict(RECORD, reason="stderr", stderr="bad /home/alice/x")
-        _, text = self.run_main(last_error=old, environ={"HOME": "/home/alice"})
+        _, text = self.run_main(last_error=old, environ={"HOME": "/home/alice"},
+                                now=NOW)
         self.assertNotIn("alice", text)
         self.assertEqual(text.count("bad ~/x"), 2)
 
@@ -246,7 +322,7 @@ class MainTest(unittest.TestCase):
         self.assertIn("polkit", text)
 
     def test_section_order(self):
-        _, text = self.run_main(last_error=RECORD)
+        _, text = self.run_main(last_error=RECORD, now=NOW)
         self.assertIn("boom happened", text)
         order = [text.index(s) for s in
                  ("Last error", "To report it:", diagnose.ISSUES_URL, "BEGIN",

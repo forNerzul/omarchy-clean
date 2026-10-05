@@ -44,7 +44,7 @@ Round 2 (user approved the review follow-ups):
 - [x] 6. No unrequested lock: when the menu may have been shown (timeout,
       exit 1 with stderr) notify and log but do not lock; lock 60 s only
       when the menu surely never appeared (TDD).
-- [ ] 7. `--diagnose`: "Everything looks fine" without a report when all
+- [x] 7. `--diagnose`: "Everything looks fine" without a report when all
       checks pass and no error is recorded; show the age of the last error
       (TDD).
 - [ ] 8. README: update troubleshooting for tasks 5-7.
