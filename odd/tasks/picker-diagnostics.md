@@ -47,4 +47,20 @@ give them a way to understand it and report it upstream.
   `bin/omarchy-clean --diagnose` exit 0 here; simulated shell-unresponsive
   log shows the restart-shell next step.
 
+- Review `review-421d810b885d16b3` (6aaef83..fa58834, high, 4 lenses):
+  approved without corrections, acknowledged.
+
+## Follow-ups from review (advisory)
+
+- Report says "no personal data" but pastes stderr verbatim (may contain
+  paths with the username): soften the claim or scrub home paths.
+- Menu timeout (120 s) and "cancel with stderr" both force a 60 s lock the
+  user did not ask for; prefer notify without locking in those cases.
+- `--diagnose` shows the last error forever; show its age or clear it after
+  a successful pick.
+- Readability nits (private `_shell_responds` import, naming).
+
 ## Pending
+
+- Hardware check: reinstall, SUPER+SHIFT+K still opens the picker; run
+  `omarchy-clean --diagnose`.
