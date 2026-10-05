@@ -32,13 +32,15 @@ give them a way to understand it and report it upstream.
 
 - [x] 1. Picker distinguishes cancel from failure (preflight ping, timeout,
       stderr/exit-code rules); on failure lock 60 s and notify (TDD).
-- [ ] 2. Record failure details in the state-dir error log (TDD).
-- [ ] 3. `omarchy-clean --diagnose`: checks, last error, report and issue
+- [x] 2. Record failure details in the state-dir error log (TDD).
+- [x] 3. `omarchy-clean --diagnose`: checks, last error, report and issue
       URL, no GTK needed (TDD).
 - [ ] 4. README: troubleshooting and how to report a problem.
 
 ## Evidence
 
 - Task 1: `394fe72` — RED (import error, 1) then GREEN, 146 tests (2 skipped).
+- Task 2: `680fc8e` — RED (6 failures, 4 errors) then GREEN, 157 tests.
+  Shell ping outcome lives in `detail` (no extra field).
 
 ## Pending

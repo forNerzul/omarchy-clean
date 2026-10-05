@@ -2,6 +2,14 @@
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "src"))
+
+# Diagnostics must work even when GTK or layer-shell is broken: no overlay import.
+if "--diagnose" in sys.argv[1:]:
+    from omarchy_clean import diagnose  # noqa: E402
+
+    sys.exit(diagnose.main())
+
 LAYER_SHELL = "libgtk4-layer-shell.so"
 
 # gtk4-layer-shell must be linked before libwayland-client.
@@ -10,8 +18,6 @@ if LAYER_SHELL not in preload:
     env = dict(os.environ)
     env["LD_PRELOAD"] = ":".join(p for p in (f"/usr/lib/{LAYER_SHELL}", preload) if p)
     os.execve(sys.executable, [sys.executable, *sys.argv], env)
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "src"))
 
 from omarchy_clean import overlay  # noqa: E402
 

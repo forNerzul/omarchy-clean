@@ -64,6 +64,8 @@ def _parse_args(argv):
                         help="path to the root helper")
     parser.add_argument("--no-pkexec", action="store_true",
                         help="run the helper directly (dev/testing only)")
+    parser.add_argument("--diagnose", action="store_true",
+                        help="check the setup and show the last error report")
     return parser.parse_args(argv)
 
 
@@ -240,6 +242,9 @@ class CleanApp(Gtk.Application):
 def main(argv=None, pick=pick_duration, notify=send_notification,
          record=write_last_error) -> int:
     args = _parse_args(argv)
+    if args.diagnose:
+        from omarchy_clean import diagnose
+        return diagnose.main()
     duration = resolve_duration(args.duration, pick, notify, record)
     if duration is None:  # picker cancelled (failures lock 60 s and notify)
         return 0
