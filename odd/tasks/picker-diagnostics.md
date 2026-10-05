@@ -1,0 +1,42 @@
+# Feature: picker-diagnostics
+
+When the duration picker cannot open, never leave the keybind silently dead:
+lock anyway with a safe default, tell the user, record what happened, and
+give them a way to understand it and report it upstream.
+
+## Decisions
+
+- Cancel vs failure: `omarchy-menu-select` exits 1 with empty stderr on
+  cancel. Anything else is a failure: other exit code, exit 1 with stderr,
+  unknown choice text, OSError, or timeout.
+- `omarchy-menu-select` waits forever if the shell never answers, so the
+  picker gets a preflight `omarchy-shell shell ping` (short IPC timeout) and
+  a generous overall timeout.
+- On failure: lock 60 s anyway and send a desktop notification:
+  "Could not open the duration menu. Locking for 1 minute. Details:
+  omarchy-clean --diagnose".
+- Failure details go to `$XDG_STATE_HOME/omarchy-clean/last-error.log`
+  (default `~/.local/state/...`): timestamp, reason, exit code, stderr,
+  shell ping result, Omarchy version, omarchy-clean version. Local only,
+  nothing personal, never sent anywhere automatically.
+- `omarchy-clean --diagnose`: environment checks with plain-language fixes
+  (e.g. shell not responding -> `omarchy-restart-shell`), the last error,
+  and a copy-ready report plus the issues URL
+  https://github.com/forNerzul/omarchy-clean/issues. Works without GTK.
+
+## Branch
+
+`feat/picker-diagnostics` (from `feat/duration-picker`).
+
+## Tasks
+
+- [ ] 1. Picker distinguishes cancel from failure (preflight ping, timeout,
+      stderr/exit-code rules); on failure lock 60 s and notify (TDD).
+- [ ] 2. Record failure details in the state-dir error log (TDD).
+- [ ] 3. `omarchy-clean --diagnose`: checks, last error, report and issue
+      URL, no GTK needed (TDD).
+- [ ] 4. README: troubleshooting and how to report a problem.
+
+## Evidence
+
+## Pending

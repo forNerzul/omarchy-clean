@@ -18,7 +18,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk, Gtk4LayerShell  # noqa: E402
 
 from omarchy_clean.core import MAX_LOCK_SECONDS  # noqa: E402
 from omarchy_clean.paths import default_helper_path  # noqa: E402
-from omarchy_clean.picker import pick_duration, resolve_duration  # noqa: E402
+from omarchy_clean.picker import notify as send_notification, pick_duration, resolve_duration  # noqa: E402
 from omarchy_clean.overlay_model import (  # noqa: E402
     OverlayState,
     apply_event,
@@ -236,10 +236,10 @@ class CleanApp(Gtk.Application):
             progress.set_visible(combo > 0)
 
 
-def main(argv=None, pick=pick_duration) -> int:
+def main(argv=None, pick=pick_duration, notify=send_notification) -> int:
     args = _parse_args(argv)
-    duration = resolve_duration(args.duration, pick)
-    if duration is None:  # picker cancelled
+    duration = resolve_duration(args.duration, pick, notify)
+    if duration is None:  # picker cancelled (failures lock 60 s and notify)
         return 0
     args.duration = duration
     app = CleanApp(args)
