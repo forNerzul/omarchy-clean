@@ -47,7 +47,7 @@ Round 2 (user approved the review follow-ups):
 - [x] 7. `--diagnose`: "Everything looks fine" without a report when all
       checks pass and no error is recorded; show the age of the last error
       (TDD).
-- [ ] 8. README: update troubleshooting for tasks 5-7.
+- [x] 8. README: update troubleshooting for tasks 5-7.
 
 ## Evidence
 
@@ -61,6 +61,12 @@ Round 2 (user approved the review follow-ups):
 
 - Review `review-421d810b885d16b3` (6aaef83..fa58834, high, 4 lenses):
   approved without corrections, acknowledged.
+
+- Task 5: `ff7ec6f` — RED (2 failures, 13 errors) then GREEN, 192 tests.
+- Task 6: `18cff5f` — RED (4 failures) then GREEN, 193 tests.
+- Task 7: `540f0b3` — RED (12 errors) then GREEN, 202 tests; real run
+  prints "Everything looks fine. Nothing to report."
+- Task 8: README round 2 (passive docs).
 
 ## Follow-ups from review (advisory)
 

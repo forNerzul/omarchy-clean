@@ -79,21 +79,26 @@ Esc + Enter for 3 seconds or close the lid. The screen shows no countdown.
 
 If the duration menu cannot open (for example the Omarchy shell is not
 responding), omarchy-clean still locks for 1 minute and shows a notification.
-Pressing Esc in the menu is a normal cancel and does nothing.
+If the menu may have been on screen (it did not answer within 2 minutes, or
+it exited with an error message), nothing is locked; you get a notification
+instead. Pressing Esc in the menu is a normal cancel and does nothing.
 
 Run `omarchy-clean --diagnose` to see:
 
 - a check of everything omarchy-clean needs, with a fix for each failure
   (the most common one: run `omarchy-restart-shell`);
-- the last error, explained in plain language;
+- the last error and how long ago it happened, explained in plain language;
 - a report ready to paste into a
   [GitHub issue](https://github.com/forNerzul/omarchy-clean/issues).
 
+When every check passes and no error was recorded, it just says
+"Everything looks fine" and prints no report.
+
 The last error is stored locally in
 `~/.local/state/omarchy-clean/last-error.log` (or `$XDG_STATE_HOME`). It holds
-only the time, the error, and the Omarchy and omarchy-clean versions; no
-personal data. Nothing is ever sent anywhere automatically: you decide whether
-to share the report.
+only the time, the error, and the Omarchy and omarchy-clean versions. Home
+folder paths in error messages are replaced with `~`. Nothing is ever sent
+anywhere automatically: review the report and decide whether to share it.
 
 ## Safety model
 
