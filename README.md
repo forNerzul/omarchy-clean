@@ -75,6 +75,26 @@ otherwise pacman reports the polkit policy file as already existing.
 In **No limit** mode there is no timer at all: the lock lasts until you hold
 Esc + Enter for 3 seconds or close the lid. The screen shows no countdown.
 
+## Troubleshooting
+
+If the duration menu cannot open (for example the Omarchy shell is not
+responding), omarchy-clean still locks for 1 minute and shows a notification.
+Pressing Esc in the menu is a normal cancel and does nothing.
+
+Run `omarchy-clean --diagnose` to see:
+
+- a check of everything omarchy-clean needs, with a fix for each failure
+  (the most common one: run `omarchy-restart-shell`);
+- the last error, explained in plain language;
+- a report ready to paste into a
+  [GitHub issue](https://github.com/forNerzul/omarchy-clean/issues).
+
+The last error is stored locally in
+`~/.local/state/omarchy-clean/last-error.log` (or `$XDG_STATE_HOME`). It holds
+only the time, the error, and the Omarchy and omarchy-clean versions; no
+personal data. Nothing is ever sent anywhere automatically: you decide whether
+to share the report.
+
 ## Safety model
 
 - The grab is done by a root helper started per use via `pkexec`

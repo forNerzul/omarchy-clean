@@ -35,12 +35,16 @@ give them a way to understand it and report it upstream.
 - [x] 2. Record failure details in the state-dir error log (TDD).
 - [x] 3. `omarchy-clean --diagnose`: checks, last error, report and issue
       URL, no GTK needed (TDD).
-- [ ] 4. README: troubleshooting and how to report a problem.
+- [x] 4. README: troubleshooting and how to report a problem.
 
 ## Evidence
 
 - Task 1: `394fe72` — RED (import error, 1) then GREEN, 146 tests (2 skipped).
 - Task 2: `680fc8e` — RED (6 failures, 4 errors) then GREEN, 157 tests.
   Shell ping outcome lives in `detail` (no extra field).
+- Task 4: README troubleshooting (passive docs).
+- Task 3: `d7e229f` — RED (21 failures, 1 error) then GREEN, 179 tests;
+  `bin/omarchy-clean --diagnose` exit 0 here; simulated shell-unresponsive
+  log shows the restart-shell next step.
 
 ## Pending
