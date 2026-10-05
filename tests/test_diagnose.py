@@ -193,6 +193,15 @@ class BuildReportTest(unittest.TestCase):
         self.assertIn("boom happened", text)
         self.assertIn("```", text)
 
+    def test_old_unscrubbed_record_is_scrubbed(self):
+        old = dict(RECORD, stderr="cannot open /home/alice/x",
+                   detail="in /home/alice/y")
+        text = diagnose.build_report([], old, app_version="0.3", omarchy_version="4.0",
+                                     environ={"HOME": "/home/alice"})
+        self.assertNotIn("alice", text)
+        self.assertIn("cannot open ~/x", text)
+        self.assertIn("in ~/y", text)
+
     def test_no_error(self):
         text = self.report(None)
         self.assertIn("No error recorded.", text)
@@ -216,8 +225,16 @@ class MainTest(unittest.TestCase):
         self.assertIn(diagnose.ISSUES_URL, text)
         self.assertIn("BEGIN", text)
         self.assertIn("END", text)
-        self.assertIn("This report contains no personal data. Review it before "
-                      "sharing; omarchy-clean never sends anything on its own.", text)
+        self.assertIn("Home folder paths are replaced with ~. Review the report "
+                      "before sharing; omarchy-clean never sends anything on its own.",
+                      text)
+        self.assertNotIn("no personal data", text)
+
+    def test_old_record_scrubbed_in_explanation_and_report(self):
+        old = dict(RECORD, reason="stderr", stderr="bad /home/alice/x")
+        _, text = self.run_main(last_error=old, environ={"HOME": "/home/alice"})
+        self.assertNotIn("alice", text)
+        self.assertEqual(text.count("bad ~/x"), 2)
 
     def test_issues_url(self):
         self.assertEqual(diagnose.ISSUES_URL,
@@ -233,7 +250,7 @@ class MainTest(unittest.TestCase):
         self.assertIn("boom happened", text)
         order = [text.index(s) for s in
                  ("Last error", "To report it:", diagnose.ISSUES_URL, "BEGIN",
-                  "END", "no personal data")]
+                  "END", "Home folder paths")]
         self.assertEqual(order, sorted(order))
         self.assertLess(text.index("pkexec"), text.index("Last error"))
 

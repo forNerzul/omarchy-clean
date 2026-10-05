@@ -20,7 +20,7 @@ LAYER_SHELL_PATH = "/usr/lib/libgtk4-layer-shell.so"
 REINSTALL_FIX = "Reinstall omarchy-clean (omarchy-clean-setup or the AUR package)."
 RESTART_SHELL_FIX = "Run: omarchy-restart-shell"
 PRIVACY_NOTE = (
-    "This report contains no personal data. Review it before sharing; "
+    "Home folder paths are replaced with ~. Review the report before sharing; "
     "omarchy-clean never sends anything on its own."
 )
 BEGIN_MARKER = "----- BEGIN REPORT -----"
@@ -117,8 +117,20 @@ def _format_check(check: Check) -> str:
     return line
 
 
+def scrub_record(record: dict | None, environ: Mapping[str, str]) -> dict | None:
+    """Scrub free-text fields; logs written before scrubbing may hold home paths."""
+    if record is None:
+        return None
+    return {**record,
+            "detail": errorlog.scrub(record.get("detail"), environ),
+            "stderr": errorlog.scrub(record.get("stderr"), environ)}
+
+
 def build_report(checks: list[Check], last_error: dict | None, *,
-                 app_version: str, omarchy_version: str) -> str:
+                 app_version: str, omarchy_version: str,
+                 environ: Mapping[str, str] | None = None) -> str:
+    environ = os.environ if environ is None else environ
+    last_error = scrub_record(last_error, environ)
     lines = [
         "### omarchy-clean report",
         "",
@@ -151,7 +163,7 @@ def main(argv=None, *, out=sys.stdout, which=shutil.which, run=subprocess.run,
             return errorlog.read_last_error(environ)
     checks = run_checks(which=which, run=run, environ=environ, exists=exists,
                         importer=importer)
-    last_error = read_last_error()
+    last_error = scrub_record(read_last_error(), environ)
 
     def say(text=""):
         print(text, file=out)
@@ -171,7 +183,8 @@ def main(argv=None, *, out=sys.stdout, which=shutil.which, run=subprocess.run,
     say(f"Open an issue at {ISSUES_URL} and paste this report:")
     say(BEGIN_MARKER)
     say(build_report(checks, last_error, app_version=__version__,
-                     omarchy_version=errorlog.omarchy_version(run)))
+                     omarchy_version=errorlog.omarchy_version(run),
+                     environ=environ))
     say(END_MARKER)
     say(PRIVACY_NOTE)
     return 0 if all(c.ok for c in checks) else 1

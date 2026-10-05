@@ -53,6 +53,57 @@ class BuildRecordTests(unittest.TestCase):
         })
 
 
+class ScrubTests(unittest.TestCase):
+    ENV = {"HOME": "/home/alice"}
+
+    def test_home_prefix_becomes_tilde(self):
+        self.assertEqual(errorlog.scrub("open /home/alice/.cache/x failed", self.ENV),
+                         "open ~/.cache/x failed")
+
+    def test_home_exact(self):
+        self.assertEqual(errorlog.scrub("cwd=/home/alice", self.ENV), "cwd=~")
+        self.assertEqual(errorlog.scrub("'/home/alice'", self.ENV), "'~'")
+
+    def test_other_home_names_and_runtime_uid(self):
+        self.assertEqual(errorlog.scrub("/home/bob/x /run/user/1000/bus", self.ENV),
+                         "/home/<user>/x /run/user/<uid>/bus")
+
+    def test_noop_text(self):
+        self.assertEqual(errorlog.scrub("nothing to see", self.ENV), "nothing to see")
+
+    def test_none_and_empty(self):
+        self.assertEqual(errorlog.scrub(None, self.ENV), "")
+        self.assertEqual(errorlog.scrub("", self.ENV), "")
+
+    def test_home_unset_still_scrubs_generic(self):
+        self.assertEqual(errorlog.scrub("/home/carol/x", {}), "/home/<user>/x")
+
+    def test_home_root_is_ignored(self):
+        self.assertEqual(errorlog.scrub("/usr/bin/x", {"HOME": "/"}), "/usr/bin/x")
+
+    def test_relative_home_is_ignored(self):
+        self.assertEqual(errorlog.scrub("a/b", {"HOME": "b"}), "a/b")
+
+    def test_prefix_collision(self):
+        env = {"HOME": "/home/al"}
+        self.assertEqual(errorlog.scrub("/home/al/x /home/alice2/x", env),
+                         "~/x /home/<user>/x")
+
+    def test_custom_home_outside_home_dir(self):
+        self.assertEqual(errorlog.scrub("/srv/u/x", {"HOME": "/srv/u"}), "~/x")
+
+
+class BuildRecordScrubTests(unittest.TestCase):
+    def test_detail_and_stderr_scrubbed(self):
+        failure = PickFailure("stderr", 1, "no /home/alice/x and /run/user/1000/y",
+                              "failed in /home/alice")
+        record = errorlog.build_record(
+            failure, now=NOW, omarchy_version="4.0", app_version="0.1.0",
+            environ={"HOME": "/home/alice"})
+        self.assertEqual(record["stderr"], "no ~/x and /run/user/<uid>/y")
+        self.assertEqual(record["detail"], "failed in ~")
+
+
 class OmarchyVersionTests(unittest.TestCase):
     def test_returns_stripped_stdout(self):
         self.assertEqual(errorlog.omarchy_version(fake_run()), "Omarchy 4.0")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 from collections.abc import Mapping
@@ -28,13 +29,29 @@ def log_path(environ: Mapping[str, str] = os.environ) -> str:
     return os.path.join(state_dir(environ), LOG_NAME)
 
 
-def build_record(failure, *, now: datetime, omarchy_version: str, app_version: str) -> dict:
+_HOME_DIR = re.compile(r"/home/[^/\s'\"]+")
+_RUN_USER_DIR = re.compile(r"/run/user/\d+")
+
+
+def scrub(text: str | None, environ: Mapping[str, str] = os.environ) -> str:
+    """Hide the home folder and user ids so logs and reports carry no username."""
+    if not text:
+        return ""
+    home = environ.get("HOME", "")
+    if home.startswith("/") and home != "/":
+        text = re.sub(re.escape(home.rstrip("/")) + r"(?=/|$|[\s'\"])", "~", text)
+    text = _HOME_DIR.sub("/home/<user>", text)
+    return _RUN_USER_DIR.sub("/run/user/<uid>", text)
+
+
+def build_record(failure, *, now: datetime, omarchy_version: str, app_version: str,
+                 environ: Mapping[str, str] = os.environ) -> dict:
     return {
         "timestamp": now.astimezone(timezone.utc).isoformat(),
         "reason": failure.reason,
-        "detail": failure.detail,
+        "detail": scrub(failure.detail, environ),
         "returncode": failure.returncode,
-        "stderr": failure.stderr,
+        "stderr": scrub(failure.stderr, environ),
         "omarchy_version": omarchy_version,
         "omarchy_clean_version": app_version,
     }
@@ -61,6 +78,7 @@ def write_last_error(failure, *, environ: Mapping[str, str] = os.environ,
             now=now or datetime.now(timezone.utc),
             omarchy_version=omarchy_version(run),
             app_version=__version__,
+            environ=environ,
         )
         directory = state_dir(environ)
         os.makedirs(directory, mode=0o700, exist_ok=True)
