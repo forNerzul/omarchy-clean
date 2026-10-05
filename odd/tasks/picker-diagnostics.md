@@ -30,7 +30,7 @@ give them a way to understand it and report it upstream.
 
 ## Tasks
 
-- [ ] 1. Picker distinguishes cancel from failure (preflight ping, timeout,
+- [x] 1. Picker distinguishes cancel from failure (preflight ping, timeout,
       stderr/exit-code rules); on failure lock 60 s and notify (TDD).
 - [ ] 2. Record failure details in the state-dir error log (TDD).
 - [ ] 3. `omarchy-clean --diagnose`: checks, last error, report and issue
@@ -38,5 +38,7 @@ give them a way to understand it and report it upstream.
 - [ ] 4. README: troubleshooting and how to report a problem.
 
 ## Evidence
+
+- Task 1: `394fe72` — RED (import error, 1) then GREEN, 146 tests (2 skipped).
 
 ## Pending
