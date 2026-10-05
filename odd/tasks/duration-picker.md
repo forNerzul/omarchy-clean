@@ -31,13 +31,13 @@ Let the user choose the lock duration when the app opens, including a
       updates an existing `omarchy-clean 60` block in place.
 - [x] 5. README.
 
-- [ ] 6. True no-limit mode (user feedback: the visible 30 min countdown felt
+- [x] 6. True no-limit mode (user feedback: the visible 30 min countdown felt
       deceptive): helper runs without any deadline when started with
       `unlimited`; overlay shows "No time limit", the Esc + Enter hint and
       "or close the lid", no numbers. Exits: Esc + Enter, lid close
       (suspend), device loss, overlay death, hardware power-off. The 1800 s
       cap stays for timed modes only.
-- [ ] 7. README: describe the no-limit exits honestly.
+- [x] 7. README: describe the no-limit exits honestly.
 
 ## Evidence
 
@@ -49,6 +49,10 @@ Let the user choose the lock duration when the app opens, including a
 
 - Review `review-d313014aa9d97b63` (a9b3a98..1bf6c1c): approved without
   corrections, acknowledged.
+
+- Task 6: `5dd4ae1` — RED (4 failures, 6 errors) then GREEN, 135 tests;
+  helper rejects `forever`; no "Releases automatically" text left.
+- Task 7: README updated (passive docs).
 
 ## Follow-ups from review (advisory)
 

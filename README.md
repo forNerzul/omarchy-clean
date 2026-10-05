@@ -72,8 +72,8 @@ otherwise pacman reports the polkit policy file as already existing.
   menu.
 - `SUPER + SHIFT + K` and "Clean Keyboard" in the app menu open the picker.
 
-In **No limit** mode the lock lasts until you hold Esc + Enter for 3 seconds,
-with a safety release after 30 minutes (shown in small print on screen).
+In **No limit** mode there is no timer at all: the lock lasts until you hold
+Esc + Enter for 3 seconds or close the lid. The screen shows no countdown.
 
 ## Safety model
 
@@ -84,7 +84,10 @@ with a safety release after 30 minutes (shown in small print on screen).
   if the helper dies.
 - If the overlay dies, the helper unlocks; if the overlay stops reading, the
   timer and Esc + Enter still work.
-- Hard maximum of 1800 s, also for No limit mode.
+- If any locked device stops responding or is unplugged (e.g. a Bluetooth
+  keyboard disconnects), the lock ends.
+- Timed locks have a hard maximum of 1800 s. No limit mode has no timer; it
+  relies on the exits listed here.
 - Closing the lid (any suspend) ends the lock, so the normal lock screen is
   usable on resume. Devices reporting the lid switch are never grabbed, so
   this exit always works.
