@@ -52,7 +52,9 @@ Let the user choose the lock duration when the app opens, including a
 
 - Task 6: `5dd4ae1` — RED (4 failures, 6 errors) then GREEN, 135 tests;
   helper rejects `forever`; no "Releases automatically" text left.
-- Task 7: README updated (passive docs).
+- Task 7: `9fea76b` README updated (passive docs).
+- Review `review-6e67e177308b6904` (33cc63e..9fea76b, medium, reliability
+  lens): approved, acknowledged; stale README timer line fixed after.
 
 ## Follow-ups from review (advisory)
 

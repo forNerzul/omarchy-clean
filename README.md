@@ -82,8 +82,8 @@ Esc + Enter for 3 seconds or close the lid. The screen shows no countdown.
   directory.
 - Devices are grabbed exclusively (`EVIOCGRAB`); the kernel releases the grabs
   if the helper dies.
-- If the overlay dies, the helper unlocks; if the overlay stops reading, the
-  timer and Esc + Enter still work.
+- If the overlay dies, the helper unlocks; if the overlay stops reading,
+  Esc + Enter, the lid and (in timed mode) the timer still work.
 - If any locked device stops responding or is unplugged (e.g. a Bluetooth
   keyboard disconnects), the lock ends.
 - Timed locks have a hard maximum of 1800 s. No limit mode has no timer; it
