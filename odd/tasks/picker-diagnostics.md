@@ -67,6 +67,10 @@ Round 2 (user approved the review follow-ups):
 - Task 7: `540f0b3` — RED (12 errors) then GREEN, 202 tests; real run
   prints "Everything looks fine. Nothing to report."
 - Task 8: README round 2 (passive docs).
+- Review `review-52af09238c91e023` (1ce6a86..1db2b13, medium, reliability):
+  approved, acknowledged. Advisory: `--diagnose` may crash on a hand-edited
+  log with non-string fields; scrub misses HOME followed by punctuation
+  (e.g. `:`); no-lock reason set could grow.
 
 ## Follow-ups from review (advisory)
 
