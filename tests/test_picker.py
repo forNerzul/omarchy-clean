@@ -9,6 +9,7 @@ from omarchy_clean.picker import (
     PICKER_TIMEOUT_SECONDS,
     PING_COMMAND,
     NOTIFY_MESSAGE,
+    NOTIFY_NO_LOCK_MESSAGE,
     PickFailure,
     PickResult,
     notify,
@@ -109,7 +110,7 @@ class PickDurationTests(unittest.TestCase):
     def test_exit_one_with_stderr_is_failure(self):
         got = pick_duration(run=fake_run("", returncode=1, stderr="boom\n"),
                             which=present)
-        self.assertEqual(got.duration, "60")
+        self.assertIsNone(got.duration)
         self.assertEqual(got.failure.reason, "stderr")
         self.assertEqual(got.failure.returncode, 1)
         self.assertEqual(got.failure.stderr, "boom\n")
@@ -140,7 +141,7 @@ class PickDurationTests(unittest.TestCase):
     def test_timeout_is_failure(self):
         got = pick_duration(
             run=fake_run(exc=subprocess.TimeoutExpired("m", 120)), which=present)
-        self.assertEqual(got.duration, "60")
+        self.assertIsNone(got.duration)
         self.assertEqual(got.failure.reason, "timeout")
         self.assertIsNone(got.failure.returncode)
 
@@ -185,21 +186,41 @@ class ResolveDurationTests(unittest.TestCase):
                                            notify=sent.append))
         self.assertEqual(sent, [])
 
-    def test_failure_notifies_and_locks_fallback(self):
-        sent = []
-        failure = PickFailure("timeout", None, "", "timed out")
-        got = resolve_duration(None, lambda: PickResult("60", failure),
-                               notify=sent.append)
-        self.assertEqual(got, (60, False))
-        self.assertEqual(sent, [NOTIFY_MESSAGE])
+    def test_locking_failure_notifies_and_locks_fallback(self):
+        for reason in ("shell-unresponsive", "os-error", "exit-code",
+                       "unknown-choice"):
+            with self.subTest(reason=reason):
+                sent = []
+                failure = PickFailure(reason, None, "", "x")
+                got = resolve_duration(None, lambda: PickResult("60", failure),
+                                       notify=sent.append)
+                self.assertEqual(got, (60, False))
+                self.assertEqual(sent, [NOTIFY_MESSAGE])
         self.assertEqual(
             NOTIFY_MESSAGE,
             "Could not open the duration menu. Locking for 1 minute. "
             "Details: omarchy-clean --diagnose")
 
+    def test_no_lock_failure_logs_then_notifies_and_returns_none(self):
+        for reason in ("timeout", "stderr"):
+            with self.subTest(reason=reason):
+                events = []
+                failure = PickFailure(reason, None, "", "x")
+                got = resolve_duration(
+                    None, lambda: PickResult(None, failure),
+                    notify=lambda m: events.append(("notify", m)),
+                    on_failure=lambda f: events.append(("log", f)))
+                self.assertIsNone(got)
+                self.assertEqual(events, [("log", failure),
+                                          ("notify", NOTIFY_NO_LOCK_MESSAGE)])
+        self.assertEqual(
+            NOTIFY_NO_LOCK_MESSAGE,
+            "The duration menu did not finish. Nothing was locked. "
+            "Details: omarchy-clean --diagnose")
+
     def test_failure_hook_receives_failure(self):
         seen = []
-        failure = PickFailure("timeout", None, "", "timed out")
+        failure = PickFailure("os-error", None, "", "boom")
         resolve_duration(None, lambda: PickResult("60", failure),
                          notify=lambda _m: None, on_failure=seen.append)
         self.assertEqual(seen, [failure])

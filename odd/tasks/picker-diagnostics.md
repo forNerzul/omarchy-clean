@@ -41,7 +41,7 @@ Round 2 (user approved the review follow-ups):
 
 - [x] 5. Privacy: replace the home path and `/home/<name>` with `~` /
       `/home/<user>` in the log and in the report; honest privacy note (TDD).
-- [ ] 6. No unrequested lock: when the menu may have been shown (timeout,
+- [x] 6. No unrequested lock: when the menu may have been shown (timeout,
       exit 1 with stderr) notify and log but do not lock; lock 60 s only
       when the menu surely never appeared (TDD).
 - [ ] 7. `--diagnose`: "Everything looks fine" without a report when all

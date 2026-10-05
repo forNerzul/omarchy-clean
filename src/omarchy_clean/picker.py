@@ -23,6 +23,12 @@ NOTIFY_MESSAGE = (
     "Could not open the duration menu. Locking for 1 minute. "
     "Details: omarchy-clean --diagnose"
 )
+NOTIFY_NO_LOCK_MESSAGE = (
+    "The duration menu did not finish. Nothing was locked. "
+    "Details: omarchy-clean --diagnose"
+)
+# The menu may have been shown to the user, so never lock on these.
+NO_LOCK_REASONS = frozenset({"timeout", "stderr"})
 PICKER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("30 seconds", "30"),
     ("1 minute", "60"),
@@ -42,15 +48,19 @@ class PickFailure:
 
 @dataclass(frozen=True)
 class PickResult:
-    """duration None with no failure means the user cancelled."""
+    """duration None with no failure means the user cancelled.
+
+    A failure with duration None means the menu may have been shown: do not lock.
+    """
 
     duration: str | None
     failure: PickFailure | None = None
 
 
 def _failure(reason, detail, returncode=None, stderr="") -> PickResult:
+    duration = None if reason in NO_LOCK_REASONS else FALLBACK_DURATION
     return PickResult(
-        FALLBACK_DURATION,
+        duration,
         PickFailure(reason, returncode, (stderr or "")[:STDERR_LIMIT], detail),
     )
 
@@ -126,14 +136,16 @@ def resolve_duration(
 ) -> tuple[int, bool] | None:
     """Parse an explicit duration, or ask the picker; None means cancelled.
 
-    A picker failure notifies the user and locks for the fallback duration.
+    A picker failure is logged and notified. It locks for the fallback duration
+    unless the menu may have been shown (the result has no duration).
     """
     if value is None:
         result = pick()
         if result.failure is not None:
             if on_failure is not None:
                 on_failure(result.failure)
-            notify(NOTIFY_MESSAGE)
+            notify(NOTIFY_MESSAGE if result.duration is not None
+                   else NOTIFY_NO_LOCK_MESSAGE)
         if result.duration is None:
             return None
         value = result.duration
