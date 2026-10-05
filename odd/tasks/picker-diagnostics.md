@@ -62,5 +62,8 @@ give them a way to understand it and report it upstream.
 
 ## Pending
 
-- Hardware check: reinstall, SUPER+SHIFT+K still opens the picker; run
-  `omarchy-clean --diagnose`.
+- Hardware check: SUPER+SHIFT+K still opens the picker (not yet confirmed).
+- Done: after `./install.sh`, installed `omarchy-clean --diagnose` shows all
+  8 checks ok and no recorded error.
+- Follow-up: when the shell is down, notify-send likely shows nothing (the
+  shell draws notifications); "To report it" is shown even when all is ok.
