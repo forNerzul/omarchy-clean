@@ -84,7 +84,8 @@ Round 2 (user approved the review follow-ups):
 
 ## Pending
 
-- Hardware check: SUPER+SHIFT+K still opens the picker (not yet confirmed).
+- Done: after reinstalling round 2, user confirmed SUPER+SHIFT+K picker,
+  cancel and `--diagnose` work as expected.
 - Done: after `./install.sh`, installed `omarchy-clean --diagnose` shows all
   8 checks ok and no recorded error.
 - Follow-up: when the shell is down, notify-send likely shows nothing (the
