@@ -10,8 +10,7 @@ depends=('python' 'python-evdev' 'python-gobject' 'gtk4' 'gtk4-layer-shell'
          'polkit' 'hyprpolkitagent' 'hyprland')
 install=omarchy-clean.install
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-# Replace with real checksums via `updpkgsums` once the v$pkgver tag exists.
-sha256sums=('SKIP')
+sha256sums=('e233bb298ab08f575b84836031847d64d0e25aa5b35be7817073c46fc58283de')
 
 check() {
   cd "$srcdir/$pkgname-$pkgver"
